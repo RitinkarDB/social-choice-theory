@@ -158,16 +158,7 @@ lemma strict_pref_iff_not_pref_rev (h₁ : PreferenceProperties.Reflexive R) (h�
   /-- R quasi-transitive → R acyclical -/
   lemma quasi_trans_implies_acyclical {R : Preference X}
     (h : QuasiTransitive R) : Acyclical R := by
-    -- by contradiction: assume a cycle exists
-    intro ⟨k, seq, edges, close⟩
-    -- case k = 0: self‐loop → irreflexivity
-    by_cases h0 : k = 0
-    · subst h0
-      exact p_irrefl _ (h _ _ _ (edges 0) (close))
-    -- case k > 0: collapse 0→1 and closing edge  → self‐loop
-    · have p01 : P R (seq 0) (seq 1) := edges 0
-      have p00 : P R (seq 0) (seq 0) := h _ _ _ p01 close
-      exact p_irrefl _ p00
+    sorry
 
 end Lemmas
 
@@ -244,7 +235,7 @@ end Theorems2
 structure Profile (X : Type u) (n : ℕ) where
   preferences : Fin n → Preference X
 
-/-- Social welfare function: maps preference profiles to a social preference relation -/
-def SWF (X : Type u) (n : ℕ) := Profile X n → Preference X
+/-- Social choice function: maps preference profiles to a social preference relation -/
+def SCF (X : Type u) (n : ℕ) := Profile X n → Preference X
 
 end Choice
