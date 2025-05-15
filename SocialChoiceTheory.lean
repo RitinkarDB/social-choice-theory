@@ -8,8 +8,7 @@ import Mathlib.Data.Fin.Basic
 /-!
 # Arrow’s Impossibility and Gibbard–Satterthwaite in Lean 4
 
-Using the definitions of `Basic.lean`, we formalize profiles, social choice functions,
-and social welfare functions, plus the core definitions and statements from Reny’s paper.
+Using the definitions of `Basic.lean`, we formalize profiles, social choice functions, plus the core definitions and statements from Reny’s paper.
 -/
 
 namespace Choice
@@ -78,7 +77,7 @@ theorem Muller_Satterthwaite
   (hPE : ParetoEfficient_SCF f)
   (hMono : Monotonic f) :
   Dictatorial_SCF f := by
-  -- proof omitted
+  -- proof TODO
   sorry
 
 /-- Theorem B (Arrow): Pareto + IIA ⇒ Dictatorship. -/
@@ -87,7 +86,7 @@ theorem Arrow_Impossibility
   (hPE : ParetoEfficient_SWF F)
   (hIIA : IIA F) :
   Dictatorial_SWF F := by
-  -- proof omitted
+  -- proof TODO
   sorry
 
 /-- Proposition (Muller–Satterthwaite link): Strategy-proof + Onto ⇒ Pareto + Monotonic. -/
@@ -110,7 +109,7 @@ theorem Gibbard_Satterthwaite
   (hOnto : Onto f)
   (hℓ : Fintype.card X ≥ 3) :
   Dictatorial_SCF f := by
-  -- proof omitted
+  -- proof TODO
   sorry
 
 end Choice
