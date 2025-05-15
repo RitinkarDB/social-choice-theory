@@ -49,6 +49,9 @@ namespace PreferenceProperties
     ¬∃ (k : ℕ) (seq : Fin (k+1) → X),
       (∀ i : Fin k, P R (seq i) (seq (i.succ))) ∧
       P R (seq k) (seq 0)
+
+  def Asymmetric : Prop := ∀ x y : X, R x y → ¬R y x
+
 end PreferenceProperties
 
 section Lemmas
@@ -79,18 +82,6 @@ lemma strict_pref_iff_not_pref_rev (h₁ : PreferenceProperties.Reflexive R) (h�
         | inr h_Ryx => contradiction  -- R y x contradicts ¬R y x
     · -- Need to show ¬R y x, which we already have
       exact h_not_Ryx
-
-  /-- In a preference ordering, P is transitive -/
-  lemma pref_ordering_strict_trans {R : Preference X}
-    (h : IsPreferenceOrdering R) :
-    ∀ (x y z : X), P R x y → P R y z → P R x z := by
-    rcases h with ⟨h_refl, h_comp, h_trans⟩
-    intro x y z ⟨Rxy, nRyx⟩ ⟨Ryz, nRzy⟩
-    constructor
-    · exact h_trans x y z Rxy Ryz
-    · intro Rzx
-      have Ryx : R y x := h_trans y z x Ryz Rzx
-      exact nRyx Ryx
 
   /-- In a preference ordering, I is an equivalence relation -/
   lemma indiff_equiv_rel {R : Preference X} (h : IsPreferenceOrdering R) :
@@ -131,10 +122,52 @@ lemma strict_pref_iff_not_pref_rev (h₁ : PreferenceProperties.Reflexive R) (h�
       have Rzy : R z y := h z x y Rzx Rxy
       exact nRzy Rzy
 
+  /-- The strict preference relation P is irreflexive -/
+  lemma p_irrefl {R : Preference X} : ∀ x, ¬P R x x := by
+    intro x h_p
+    exact h_p.2 h_p.1  -- h_p.1 says R x x and h_p.2 says ¬R x x
+
+    /-- The strict preference relation P is inherently asymmetric by definition -/
+  lemma P_is_asymmetric_by_def {R : Preference X} :
+  ∀ (x y : X), P R x y → ¬ P R y x := by
+    intro x y h_Pxy h_Pyx
+    -- Unpack the definitions of P R x y and P R y x
+    have ⟨Rxy, nRyx⟩ := h_Pxy  -- P R x y means R x y ∧ ¬R y x
+    have ⟨Ryx, nRxy⟩ := h_Pyx  -- P R y x means R y x ∧ ¬R x y
+
+    -- We now have a direct contradiction:
+    -- R x y (from h_Pxy) and ¬R x y (from h_Pyx)
+    contradiction
+
+  /-- In a preference ordering, P is asymmetric -/
+  lemma P_is_asymmetric {R : Preference X} (_ : IsPreferenceOrdering R) :
+    ∀ (x y : X), P R x y → ¬ P R y x := P_is_asymmetric_by_def
+
+  /-- In a preference ordering, P is transitive -/
+  lemma pref_ordering_strict_trans {R : Preference X}
+    (h : IsPreferenceOrdering R) :
+    ∀ (x y z : X), P R x y → P R y z → P R x z := by
+    rcases h with ⟨h_refl, h_comp, h_trans⟩
+    intro x y z ⟨Rxy, nRyx⟩ ⟨Ryz, nRzy⟩
+    constructor
+    · exact h_trans x y z Rxy Ryz
+    · intro Rzx
+      have Ryx : R y x := h_trans y z x Ryz Rzx
+      exact nRyx Ryx
+
   /-- R quasi-transitive → R acyclical -/
   lemma quasi_trans_implies_acyclical {R : Preference X}
     (h : QuasiTransitive R) : Acyclical R := by
-    sorry
+    -- by contradiction: assume a cycle exists
+    intro ⟨k, seq, edges, close⟩
+    -- case k = 0: self‐loop → irreflexivity
+    by_cases h0 : k = 0
+    · subst h0
+      exact p_irrefl _ (h _ _ _ (edges 0) (close))
+    -- case k > 0: collapse 0→1 and closing edge  → self‐loop
+    · have p01 : P R (seq 0) (seq 1) := edges 0
+      have p00 : P R (seq 0) (seq 0) := h _ _ _ p01 close
+      exact p_irrefl _ p00
 
 end Lemmas
 
