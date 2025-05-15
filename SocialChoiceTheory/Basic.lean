@@ -51,17 +51,37 @@ namespace PreferenceProperties
       P R (seq k) (seq 0)
 end PreferenceProperties
 
-section Theorems
+section Lemmas
   open PreferenceProperties
   variable {R : Preference X}
 
   /-- If R is reflexive and complete, then xPy ↔ ¬yRx -/
-theorem strict_pref_iff_not_pref_rev (h₁ : PreferenceProperties.Reflexive R) (h₂ : Complete R) (x y : X) :
+lemma strict_pref_iff_not_pref_rev (h₁ : PreferenceProperties.Reflexive R) (h₂ : Complete R) (x y : X) :
     P R x y ↔ ¬ R y x := by
-  sorry
+  constructor
+  · -- Forward direction: P R x y → ¬R y x
+    intro h
+    exact h.2  -- By definition, P R x y means R x y ∧ ¬R y x, so we take the second component
+
+  · -- Reverse direction: ¬R y x → P R x y
+    intro h_not_Ryx
+    constructor
+    · -- Need to show R x y
+      by_cases h_eq : x = y
+      · -- If x = y, we have a contradiction
+        subst h_eq
+        have h_refl := h₁ x  -- R x x by reflexivity
+        contradiction  -- This contradicts ¬R x x
+      · -- If x ≠ y, use completeness
+        have h_comp := h₂ x y h_eq
+        cases h_comp with
+        | inl h_Rxy => exact h_Rxy
+        | inr h_Ryx => contradiction  -- R y x contradicts ¬R y x
+    · -- Need to show ¬R y x, which we already have
+      exact h_not_Ryx
 
   /-- In a preference ordering, P is transitive -/
-  theorem pref_ordering_strict_trans {R : Preference X}
+  lemma pref_ordering_strict_trans {R : Preference X}
     (h : IsPreferenceOrdering R) :
     ∀ (x y z : X), P R x y → P R y z → P R x z := by
     rcases h with ⟨h_refl, h_comp, h_trans⟩
@@ -73,7 +93,7 @@ theorem strict_pref_iff_not_pref_rev (h₁ : PreferenceProperties.Reflexive R) (
       exact nRyx Ryx
 
   /-- In a preference ordering, I is an equivalence relation -/
-  theorem indiff_equiv_rel {R : Preference X} (h : IsPreferenceOrdering R) :
+  lemma indiff_equiv_rel {R : Preference X} (h : IsPreferenceOrdering R) :
     Equivalence (I R) := by
     rcases h with ⟨h_refl, h_comp, h_trans⟩
     constructor
@@ -90,7 +110,7 @@ theorem strict_pref_iff_not_pref_rev (h₁ : PreferenceProperties.Reflexive R) (
       · exact h_trans z y x Rzy Ryx
 
   /-- In a preference ordering, (xPy ∧ yRz) → xPz -/
-  theorem strict_pref_trans_weak {R : Preference X}
+  lemma strict_pref_trans_weak {R : Preference X}
     (h : IsPreferenceOrdering R) (x y z : X) :
     P R x y → R y z → P R x z := by
     rcases h with ⟨h_refl, h_comp, h_trans⟩
@@ -102,7 +122,7 @@ theorem strict_pref_iff_not_pref_rev (h₁ : PreferenceProperties.Reflexive R) (
       exact nRyx Ryx
 
   /-- R transitive → R quasi-transitive -/
-  theorem trans_implies_quasi_trans {R : Preference X}
+  lemma trans_implies_quasi_trans {R : Preference X}
     (h : PreferenceProperties.Transitive R) : QuasiTransitive R := by
     intro x y z ⟨Rxy, nRyx⟩ ⟨Ryz, nRzy⟩
     constructor
@@ -112,11 +132,11 @@ theorem strict_pref_iff_not_pref_rev (h₁ : PreferenceProperties.Reflexive R) (
       exact nRzy Rzy
 
   /-- R quasi-transitive → R acyclical -/
-  theorem quasi_trans_implies_acyclical {R : Preference X}
+  lemma quasi_trans_implies_acyclical {R : Preference X}
     (h : QuasiTransitive R) : Acyclical R := by
     sorry
 
-end Theorems
+end Lemmas
 
 /-- Maximal set of S with respect to R: elements not dominated by any other element in S -/
 def maximalSet (S : Set X) (R : Preference X) : Set X :=
