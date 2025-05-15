@@ -235,7 +235,7 @@ end Theorems2
 structure Profile (X : Type u) (n : ℕ) where
   preferences : Fin n → Preference X
 
-/-- Social choice function: maps preference profiles to a social preference relation -/
-def SCF (X : Type u) (n : ℕ) := Profile X n → Preference X
+/-- Social welfare function: maps preference profiles to a social preference relation -/
+def SWF (X : Type u) (n : ℕ) := Profile X n → Preference X
 
 end Choice
