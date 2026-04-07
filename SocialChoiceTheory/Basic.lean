@@ -6,8 +6,7 @@ import Mathlib.Tactic
 
 open Relation
 
-namespace EcoLean
-namespace SocialChoice
+namespace SocialChoiceTheory
 
 section FinsetLemmas
 
@@ -569,5 +568,4 @@ def IsCompatible (Q : QuasiOrder σ) (R : PrefOrder σ) : Prop :=
 end PrefOrders
 
 end QuasiOrders
-end SocialChoice
-end EcoLean
+end SocialChoiceTheory
