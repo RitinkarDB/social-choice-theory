@@ -1,0 +1,25 @@
+# Lake build artifacts
+.lake/
+build/
+lake-packages/
+
+# Lean / editor artifacts
+*.olean
+*.ilean
+*.trace
+
+# elan toolchain file cache artifacts are usually not committed
+# keep lean-toolchain tracked if you use it
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.vscode/
+.idea/
+
+# Temporary / swap files
+*.swp
+*.swo
+*~

@@ -351,12 +351,13 @@ lemma choiceSet_of_singleton
     simpa using hyx
   · intro hy
     apply Finset.mem_filter.mpr
-    refine ⟨by simpa using hy, ?_⟩
+    refine ⟨by simpa [hy] using Finset.mem_singleton_self x, ?_⟩
     intro z hz
-    have hz' : z = x := by simpa using hz
-    subst hz'
-    have hy' : y = x := by simpa using hy
-    subst hy'
+    have hz' : z = x := by
+      simpa using hz
+    have hy' : y = x := by
+      simpa using hy
+    rw [hy', hz']
     exact hr x
 
 lemma singleton_choiceSet
@@ -364,58 +365,80 @@ lemma singleton_choiceSet
     {r : σ → σ → Prop}
     (x y : σ) (hxy : x ≠ y) (hR : Reflexive r) :
     StrictPref r x y ↔ ({x} : Finset σ) = choiceSet ({x, y} : Finset σ) r := by
+  classical
   constructor
   · intro h
     ext z
     constructor
     · intro hz
-      simp at hz
-      subst hz
-      simp [choiceSet, IsBestElement, hR, h.1, hxy]
-    · intro hz
       have hz' : z = x := by
-        by_cases hz1 : z = x
-        · exact hz1
-        · have hz2 : z = y := by
-            have : z ∈ ({x, y} : Finset σ) := (mem_filter.mp hz).1
-            simp [hz1] at this
-            exact this
-          subst hz2
-          have hy_mem : y ∈ choiceSet ({x, y} : Finset σ) r := hz
-          rcases mem_filter.mp hy_mem with ⟨_, hybest⟩
-          exact False.elim (h.2 (hybest x (by simp)))
-      simpa [hz']
+        simpa using hz
+      apply Finset.mem_filter.mpr
+      refine ⟨by simpa [hz'], ?_⟩
+      intro w hw
+      have hw' : w = x ∨ w = y := by
+        simpa using hw
+      rcases hw' with hwx | hwy
+      · rw [hz', hwx]
+        exact hR x
+      · rw [hz', hwy]
+        exact h.1
+    · intro hz
+      rcases Finset.mem_filter.mp hz with ⟨hzS, hzBest⟩
+      by_cases hzx : z = x
+      · simpa [hzx]
+      · have hzy : z = y := by
+          have : z = x ∨ z = y := by
+            simpa using hzS
+          rcases this with h1 | h2
+          · exact False.elim (hzx h1)
+          · exact h2
+        have hyx : r y x := by
+          rw [← hzy]
+          exact hzBest x (by simp)
+        exfalso
+        exact h.2 hyx
   · intro hEq
     have hx : x ∈ choiceSet ({x, y} : Finset σ) r := by
       rw [← hEq]
       simp
+    rcases Finset.mem_filter.mp hx with ⟨hxS, hxBest⟩
+    have hxy' : r x y := by
+      exact hxBest y (by simp)
     have hy_not : y ∉ choiceSet ({x, y} : Finset σ) r := by
-      rw [← hEq]
-      simp [hxy]
-    rcases mem_filter.mp hx with ⟨_, hxbest⟩
-    refine ⟨hxbest y (by simp), ?_⟩
-    intro hyx
-    apply hy_not
-    apply mem_filter.mpr
-    refine ⟨by simp, ?_⟩
-    intro z hz
-    simp at hz
-    rcases hz with rfl | rfl
-    · exact hyx
-    · exact hR _
+      intro hy_mem
+      rw [← hEq] at hy_mem
+      have : y = x := by
+        simpa using hy_mem
+      exact hxy this.symm
+    have hyx_not : ¬ r y x := by
+      intro hyx
+      apply hy_not
+      apply Finset.mem_filter.mpr
+      refine ⟨by simp, ?_⟩
+      intro z hz
+      have hz' : z = x ∨ z = y := by
+        simpa using hz
+      rcases hz' with hzx | hzy
+      · rw [hzx]
+        exact hyx
+      · rw [hzy]
+        exact hR y
+    exact ⟨hxy', hyx_not⟩
 
 lemma choiceEq_maximal_of_quasi
     [DecidableEq σ]
     {r : QuasiOrder σ}
     (S : Finset σ) (hS : (choiceSet S r).Nonempty) :
     choiceSet S r = maximalSet S r := by
+  classical
   apply Finset.Subset.antisymm
   · exact choiceSet_subset_maximalSet S r
   · intro z hz
     rcases hS with ⟨x, hx⟩
-    rcases mem_filter.mp hz with ⟨hzS, hzmax⟩
-    rcases mem_filter.mp hx with ⟨hxS, hxbest⟩
-    apply mem_filter.mpr
+    rcases Finset.mem_filter.mp hz with ⟨hzS, hzmax⟩
+    rcases Finset.mem_filter.mp hx with ⟨hxS, hxbest⟩
+    apply Finset.mem_filter.mpr
     refine ⟨hzS, ?_⟩
     intro y hy
     have hzx : r z x := by
@@ -429,39 +452,90 @@ lemma maximal_indiff_iff_choiceEq_maximal
     (S : Finset σ) (hS : S.Nonempty) :
     (∀ x y, x ∈ maximalSet S r → y ∈ maximalSet S r → Indiff r x y) ↔
       choiceSet S r = maximalSet S r := by
+  classical
   constructor
-  · intro hindiff
-    by_cases hchoice : (choiceSet S r).Nonempty
-    · exact choiceEq_maximal_of_quasi S hchoice
-    · exfalso
-      rcases maximal_of_finite_quasiOrdered r S hS with ⟨x, hxS, hxmax⟩
-      have hxM : x ∈ maximalSet S r := mem_maximalSet_of_maximalElement hxS hxmax
-      have hxC : x ∈ choiceSet S r := by
-        apply mem_filter.mpr
-        refine ⟨hxS, ?_⟩
-        intro y hy
-        by_cases hyM : y ∈ maximalSet S r
-        · exact (hindiff x y hxM hyM).1
-        · have : ¬ IsMaximalElement y S r := by
-            simpa [maximalSet, hy] using hyM
-          push_neg at this
-          rcases this with ⟨z, hzS, hzy⟩
-          exfalso
-          exact hxmax z hzS (strictPref_trans r.trans hzy ((hindiff x z hxM
-            (mem_maximalSet_of_maximalElement hzS
-              (by
-                intro w hw hwz
-                exact hxmax w hw (strictPref_trans r.trans hwz hzy)))).2))
-      exact hchoice ⟨x, hxC⟩
+  · intro hyp
+    by_contra sets_neq
+    obtain ⟨x₀, x₀_in, hx₀⟩ := maximal_of_finite_quasiOrdered r S hS
+    have choice_empty : choiceSet S r = ∅ := by
+      by_contra hne
+      have hchoice_nonempty : (choiceSet S r).Nonempty := by
+        by_contra hchoice_empty
+        exact hne (Finset.not_nonempty_iff_eq_empty.mp hchoice_empty)
+      exact sets_neq (choiceEq_maximal_of_quasi S hchoice_nonempty)
+    have x₀_not_in : x₀ ∉ choiceSet S r := by
+      rw [choice_empty]
+      simp
+    have hx₀_not_best : ¬ IsBestElement x₀ S r := by
+      intro hxbest
+      exact x₀_not_in (Finset.mem_filter.mpr ⟨x₀_in, hxbest⟩)
+    unfold IsBestElement at hx₀_not_best
+    push_neg at hx₀_not_best
+    obtain ⟨x₁, x₁_in, hx₁⟩ := hx₀_not_best
+
+    have hx₀M : x₀ ∈ maximalSet S r := by
+      exact mem_maximalSet_of_maximalElement x₀_in hx₀
+
+    have x₁_not_in : x₁ ∉ maximalSet S r := by
+      intro x₁_in_max
+      exact hx₁ (hyp x₀ x₁ hx₀M x₁_in_max).1
+
+    let T : Finset σ := S.filter (fun z => StrictPref r z x₁ ∧ z ∉ maximalSet S r)
+
+    have h_no_max :
+        ¬ ∃ x ∈ T, IsMaximalElement x T r := by
+      intro hmax
+      rcases hmax with ⟨x, x_in, hxmaxT⟩
+      have hx_in : x ∈ S ∧ StrictPref r x x₁ ∧ x ∉ maximalSet S r := by
+        simpa [T] using x_in
+      rcases hx_in with ⟨hxS, hPx₁, hx_not_max⟩
+
+      have hx_not_max' : ¬ IsMaximalElement x S r := by
+        intro hxMaxS
+        exact hx_not_max (mem_maximalSet_of_maximalElement hxS hxMaxS)
+
+      unfold IsMaximalElement at hx_not_max'
+      push_neg at hx_not_max'
+      obtain ⟨y, y_in, hy⟩ := hx_not_max'
+
+      have hy_in_T : y ∈ T := by
+        apply Finset.mem_filter.mpr
+        refine ⟨y_in, ?_⟩
+        refine ⟨strictPref_trans r.trans hy hPx₁, ?_⟩
+        intro y_max
+        apply hx₁
+        exact (indiff_trans_strictPref r.trans
+          (hyp x₀ y hx₀M y_max)
+          (strictPref_trans r.trans hy hPx₁)).1
+
+      have hy_strict : StrictPref r y x := by
+        exact hy
+
+      exact hxmaxT y hy_in_T hy_strict
+
+    have hT_nonempty : T.Nonempty := by
+      have x₁_not_max' : ¬ IsMaximalElement x₁ S r := by
+        intro hx₁max
+        exact x₁_not_in (mem_maximalSet_of_maximalElement x₁_in hx₁max)
+      unfold IsMaximalElement at x₁_not_max'
+      push_neg at x₁_not_max'
+      obtain ⟨x₂, x₂_in, hx₂⟩ := x₁_not_max'
+      refine ⟨x₂, ?_⟩
+      apply Finset.mem_filter.mpr
+      refine ⟨x₂_in, ?_⟩
+      refine ⟨hx₂, ?_⟩
+      intro x₂_in_max
+      apply hx₁
+      exact r.trans (hyp x₀ x₂ hx₀M x₂_in_max).1 hx₂.1
+
+    exact h_no_max (maximal_of_finite_quasiOrdered r T hT_nonempty)
+
   · intro hEq
-    intro x y hx hy
-    rw [← hEq] at hx hy
-    rcases mem_filter.mp hx with ⟨hxS, hxbest⟩
-    rcases mem_filter.mp hy with ⟨hyS, hybest⟩
+    rw [← hEq]
+    intro x y x_in y_in
+    rcases Finset.mem_filter.mp x_in with ⟨hxS, hxbest⟩
+    rcases Finset.mem_filter.mp y_in with ⟨hyS, hybest⟩
     exact ⟨hxbest y hyS, hybest x hxS⟩
-
-end QuasiOrders
-
 section PrefOrders
 
 variable {σ : Type*}
@@ -494,5 +568,6 @@ def IsCompatible (Q : QuasiOrder σ) (R : PrefOrder σ) : Prop :=
 
 end PrefOrders
 
+end QuasiOrders
 end SocialChoice
 end EcoLean
