@@ -8,6 +8,36 @@ open Relation
 
 namespace SocialChoiceTheory
 
+/-!
+# Basic infrastructure for finite social-choice theory
+
+This file builds the foundational layer used later in the Arrow file.
+
+Mathematically, it does four things.
+
+First, it proves a few elementary finite-set lemmas. These are the small cardinality
+facts needed whenever one wants to pick a second or third alternative distinct from a
+given one. In Arrow-style arguments, these are what let us exploit the hypothesis that
+the agenda contains at least three alternatives.
+
+Second, it defines the core language of preference relations. We work with a weak
+relation `R`, then define strict preference and indifference in the usual way:
+`x P y` means `x R y` and not `y R x`, while `x I y` means both `x R y` and `y R x`.
+Several lemmas then record the standard interaction of strict preference,
+indifference, transitivity, and totality.
+
+Third, it develops the finite-choice notions of maximal element, best element,
+maximal set, and choice set. These are abstract order-theoretic notions, not yet
+Arrow-specific.
+
+Fourth, it introduces bundled structures for quasi-orders and preference orders.
+A `QuasiOrder` is reflexive and transitive. A `PrefOrder` is reflexive, transitive,
+and total. This bundled formulation is convenient later because social welfare
+functions return preference orders.
+
+The later Arrow file uses all of this as its "algebra of pairwise comparisons".
+-/
+
 section FinsetLemmas
 
 variable {α : Type*} [DecidableEq α]
@@ -15,6 +45,12 @@ variable {s : Finset α} {a b : α}
 
 namespace Finset
 
+/--
+If `s` is nonempty and not equal to `{a}`, then `s` contains some element distinct from `a`.
+
+This is the most primitive finite-set separation lemma in the file. It says that once a
+finite agenda is not collapsed to a singleton, one can find a genuine second option.
+-/
 lemma existsDistinctMemOfNeSingleton
     (hs₁ : s.Nonempty) (hs₂ : s ≠ {a}) :
     ∃ b ∈ s, b ≠ a := by
@@ -35,6 +71,14 @@ lemma existsDistinctMemOfNeSingleton
     subst hx'
     simpa using hy
 
+/--
+If a finite set has cardinality at least `2` and contains `a`, then it contains some
+other element distinct from `a`.
+
+This packages the previous idea in cardinality form, which is often more convenient in
+social-choice arguments because hypotheses naturally come as lower bounds on the number
+of alternatives.
+-/
 lemma existsSecondDistinctMem
     (hs : 2 ≤ s.card) (ha : a ∈ s) :
     ∃ b ∈ s, b ≠ a := by
@@ -48,6 +92,14 @@ lemma existsSecondDistinctMem
   rcases hne with ⟨b, hb⟩
   exact ⟨b, (Finset.mem_erase.1 hb).2, (Finset.mem_erase.1 hb).1⟩
 
+/--
+If a finite set has cardinality strictly greater than `2` and already contains two
+distinct elements `a` and `b`, then it contains a third element distinct from both.
+
+This lemma is one of the key combinatorial inputs to Arrow-style proofs: from an agenda
+of size at least three, one can always pick a "third alternative" used to mediate
+pivotality and dictatorship arguments.
+-/
 lemma existsThirdDistinctMem
     (hs : 2 < s.card) (ha : a ∈ s) (hb : b ∈ s) (h : a ≠ b) :
     ∃ c ∈ s, c ≠ a ∧ c ≠ b := by
@@ -67,11 +119,24 @@ lemma existsThirdDistinctMem
   have hcs : c ∈ s := (Finset.mem_erase.mp hce).2
   exact ⟨c, hcs, hca, hcb⟩
 
+/--
+A member of a finite set witnesses that the set is nonempty.
+
+This trivial lemma is kept as a named fact because it streamlines later proofs.
+-/
 lemma nonemptyOfMem (ha : a ∈ s) : s.Nonempty := ⟨a, ha⟩
 
 end Finset
 
 namespace Relation
+
+/--
+If every element of `s` has an incoming `R`-edge from another element of `s`, then every
+element also has an incoming edge in the transitive closure `TransGen R`.
+
+This is conceptually simple but useful when moving from one-step comparison information
+to path-based information.
+-/
 
 lemma forallExistsTransGen
     (R : α → α → Prop)
@@ -89,18 +154,44 @@ open Finset
 
 section BasicDefs
 
+/-!
+## Basic relational definitions
+
+We now fix a type `σ` of alternatives and work with binary relations on `σ`.
+The philosophy throughout the file is that weak preference is primitive, while strict
+preference and indifference are derived notions.
+-/
+
 variable {σ ι : Type*}
 variable {x y z a b : σ}
 variable {R R' : σ → σ → Prop}
 
-/-- Strict preference induced by a weak relation. -/
+/--
+Strict preference induced by a weak relation.
+
+Mathematically, `StrictPref R x y` means "`x` is weakly preferred to `y`, but not vice
+versa". This is the standard way of extracting the asymmetric part of a weak order.
+-/
 def StrictPref (R : σ → σ → Prop) (x y : σ) : Prop :=
   R x y ∧ ¬ R y x
 
-/-- Indifference induced by a weak relation. -/
+/--
+Indifference induced by a weak relation.
+
+Mathematically, `Indiff R x y` means the weak relation ranks `x` and `y` both ways,
+which is the usual notion of indifference for weak orders.
+-/
 def Indiff (R : σ → σ → Prop) (x y : σ) : Prop :=
   R x y ∧ R y x
 
+/--
+If two relations agree on the pair `(a,b)` in both directions, then they also agree on
+the induced strict comparisons between `a` and `b`.
+
+This is a tiny transport lemma, but it is fundamental when using IIA later: once the
+pairwise weak comparison data are preserved, the pairwise strict comparison data are
+preserved as well.
+-/
 lemma strictPref_iff_of_iff
     (h₁ : R a b ↔ R' a b)
     (h₂ : R b a ↔ R' b a) :
@@ -108,12 +199,28 @@ lemma strictPref_iff_of_iff
     (StrictPref R b a ↔ StrictPref R' b a) := by
   constructor <;> simp [StrictPref, h₁, h₂]
 
+/--
+Indifference is transitive whenever the underlying weak relation is transitive.
+
+This is the familiar fact that if `x ~ y` and `y ~ z` under a transitive weak order,
+then `x ~ z`.
+-/
 lemma indiff_trans
     (htrans : Transitive R)
     (h1 : Indiff R x y) (h2 : Indiff R y z) :
     Indiff R x z := by
   exact ⟨htrans h1.1 h2.1, htrans h2.2 h1.2⟩
 
+/--
+Strict preference composed with indifference remains strict preference.
+
+If `x P y` and `y I z`, then `x P z`, provided the weak relation is transitive.
+
+Strict preference is transitive whenever the underlying weak relation is transitive.
+
+This is the standard fact that the asymmetric part of a transitive weak order is itself
+transitive.
+-/
 lemma strictPref_trans_indiff
     (htrans : Transitive R)
     (h1 : StrictPref R x y) (h2 : Indiff R y z) :
@@ -122,6 +229,16 @@ lemma strictPref_trans_indiff
   intro hzx
   exact h1.2 (htrans h2.1 hzx)
 
+/--
+Indifference is transitive whenever the underlying weak relation is transitive.
+
+This is the familiar fact that if `x ~ y` and `y ~ z` under a transitive weak order,
+then `x ~ z`.
+
+Indifference composed with strict preference remains strict preference.
+
+If `x I y` and `y P z`, then `x P z`, under transitivity.
+-/
 lemma indiff_trans_strictPref
     (htrans : Transitive R)
     (h1 : Indiff R x y) (h2 : StrictPref R y z) :
@@ -130,6 +247,12 @@ lemma indiff_trans_strictPref
   intro hzx
   exact h2.2 (htrans hzx h1.1)
 
+/--
+Strict preference is transitive whenever the underlying weak relation is transitive.
+
+This is the standard fact that the asymmetric part of a transitive weak order is itself
+transitive.
+-/
 lemma strictPref_trans
     (htrans : Transitive R)
     (h1 : StrictPref R x y) (h2 : StrictPref R y z) :
@@ -138,6 +261,12 @@ lemma strictPref_trans
   intro hzx
   exact h2.2 (htrans hzx h1.1)
 
+/--
+Under totality, failure of the reverse strict preference implies the forward weak relation.
+
+Concretely, if the relation is total and it is *not* the case that `y P x`, then
+necessarily `x R y`. This is one of the characteristic ways totality is used later.
+-/
 lemma rel_of_not_strictPref_total
     (htot : Total R) (h : ¬ StrictPref R y x) :
     R x y := by
@@ -146,36 +275,70 @@ lemma rel_of_not_strictPref_total
   · by_contra hxy
     exact h ⟨hyx, hxy⟩
 
+/--
+Strict preference cannot hold in both directions.
+
+This is the asymmetry of strict preference.
+-/
 lemma not_strictPref_of_reverse
     (h : StrictPref R x y) :
     ¬ StrictPref R y x := by
   intro hyx
   exact hyx.2 h.1
 
+/--
+If `x R y` already fails, then certainly `x P y` fails.
+
+This is a convenience lemma for eliminating impossible strict comparisons.
+-/
 lemma not_strictPref_of_not_rel
     (h : ¬ R x y) :
     ¬ StrictPref R x y := by
   intro hxy
   exact h hxy.1
 
+/--
+No element can be strictly preferred to itself.
+
+This is the irreflexivity of strict preference, derived from its definition.
+-/
 lemma false_of_strictPref_self
     (h : StrictPref R x x) :
     False := by
   exact h.2 h.1
 
-/-- Same order of a pair across two relations. -/
+/--
+Agreement of two relations on a given pair, both at the weak and strict levels.
+
+`SameOrder R R' x y x' y'` says that the comparison of `x` versus `y` under `R` matches
+the comparison of `x'` versus `y'` under `R'`, in *both* weak directions and hence also
+in both strict directions.
+-/
+
 def SameOrder
     (R R' : σ → σ → Prop) (x y x' y' : σ) : Prop :=
   ((R x y ↔ R' x' y') ∧ (R y x ↔ R' y' x')) ∧
   (StrictPref R x y ↔ StrictPref R' x' y') ∧
   (StrictPref R y x ↔ StrictPref R' y' x')
 
-/-- Slimmer pairwise version using only strict preference. -/
+/--
+A lighter pairwise agreement notion that remembers only the strict comparison pattern.
+
+This is useful when only strict preference transport is needed.
+-/
+
 def SameOrder'
     (R R' : σ → σ → Prop) (x y x' y' : σ) : Prop :=
   (StrictPref R x y ↔ StrictPref R' x' y') ∧
   (StrictPref R y x ↔ StrictPref R' y' x')
 
+/--
+If both relations strictly rank `x` above `y`, then they certainly induce the same order
+on the pair `(x,y)`.
+
+This packages the obvious observation that two identical strict pairwise rankings imply
+pairwise agreement in the stronger `SameOrder` sense.
+-/
 lemma sameOrder_of_strict_strict
     (hR : StrictPref R x y) (hR' : StrictPref R' x y) :
     SameOrder R R' x y x y := by
@@ -190,6 +353,12 @@ lemma sameOrder_of_strict_strict
       (fun hyx => False.elim ((not_strictPref_of_reverse hR) hyx))
       (fun hyx => False.elim ((not_strictPref_of_reverse hR') hyx))
 
+/--
+If both relations strictly rank `y` above `x`, then they induce the same order on the
+pair `(x,y)` as well.
+
+This is the reverse-oriented companion to `sameOrder_of_strict_strict`.
+-/
 lemma sameOrder_of_reverse_strict
     (hR : StrictPref R y x) (hR' : StrictPref R' y x) :
     SameOrder R R' x y x y := by
@@ -208,24 +377,50 @@ lemma sameOrder'_comm :
     SameOrder' R R' x y x y ↔ SameOrder' R R' y x y x := by
   exact and_comm
 
+/--
+`x` is maximal in `S` if no element of `S` is strictly preferred to `x`.
+
+This is the usual order-theoretic notion of maximality: other elements may tie with `x`,
+but none can beat it strictly.
+-/
 def IsMaximalElement
     (x : σ) (S : Finset σ) (R : σ → σ → Prop) : Prop :=
   ∀ y ∈ S, ¬ StrictPref R y x
 
+/--
+`x` is best in `S` if it weakly dominates every element of `S`.
+
+This is stronger than maximality: a best element is above everyone, not merely unbeaten.
+-/
 def IsBestElement
     (x : σ) (S : Finset σ) (R : σ → σ → Prop) : Prop :=
   ∀ y ∈ S, R x y
 
+/--
+The set of maximal elements of `S` under the relation `R`.
+
+The definition is noncomputable only because we use classical decidability for the
+filtering predicate.
+-/
 noncomputable def maximalSet [DecidableEq σ]
     (S : Finset σ) (R : σ → σ → Prop) : Finset σ := by
   classical
   exact S.filter (fun x => IsMaximalElement x S R)
 
+/--
+The set of best elements of `S` under the relation `R`.
+
+For a complete and transitive order on a finite set, this is the usual "choice set" of
+alternatives that beat or tie everything else.
+-/
 noncomputable def choiceSet [DecidableEq σ]
     (S : Finset σ) (R : σ → σ → Prop) : Finset σ := by
   classical
   exact S.filter (fun x => IsBestElement x S R)
 
+/--
+Membership in `maximalSet` gives the corresponding maximality property.
+-/
 lemma maximalElement_of_mem_maximalSet
     [DecidableEq σ] {r : σ → σ → Prop} {s : Finset σ} {x : σ}
     (h : x ∈ maximalSet s r) :
@@ -233,12 +428,24 @@ lemma maximalElement_of_mem_maximalSet
   simp [maximalSet] at h
   exact h.2
 
+/--
+A maximal element of `S` belongs to `maximalSet S R`.
+
+Together with the previous lemma, this identifies `maximalSet` exactly with the
+predicate `IsMaximalElement`.
+-/
 lemma mem_maximalSet_of_maximalElement
     [DecidableEq σ] {r : σ → σ → Prop} {s : Finset σ} {x : σ}
     (hx : x ∈ s) (h : IsMaximalElement x s r) :
     x ∈ maximalSet s r := by
   simp [maximalSet, hx, h]
 
+/--
+The maximal set is a subset of the underlying agenda `s`.
+
+This is immediate from the filter definition, but it is often useful as a standalone
+fact in later arguments.
+-/
 lemma maximalSet_subset
     [DecidableEq σ] (s : Finset σ) (r : σ → σ → Prop) :
     maximalSet s r ⊆ s := by
@@ -246,6 +453,11 @@ lemma maximalSet_subset
   intro x hx
   exact (Finset.mem_filter.mp hx).1
 
+/--
+In a singleton set, the unique element is maximal under any reflexive relation.
+
+This is the finite base case behind later inductive existence arguments.
+-/
 lemma isMaximal_of_singleton
     [DecidableEq σ] {R : σ → σ → Prop}
     (hR : Reflexive R) (x : σ) :
@@ -258,16 +470,27 @@ lemma isMaximal_of_singleton
   exact h.2 (hR _)
 
 
+/--
+The maximal set of the empty agenda is empty.
+-/
 lemma maximalSet_eq_empty_of_empty
     [DecidableEq σ] (R : σ → σ → Prop) :
     maximalSet (∅ : Finset σ) R = ∅ := by
   simp [maximalSet]
 
+/--
+The choice set of the empty agenda is empty.
+-/
 lemma choiceSet_eq_empty_of_empty
     [DecidableEq σ] (R : σ → σ → Prop) :
     choiceSet (∅ : Finset σ) R = ∅ := by
   simp [choiceSet]
 
+/--
+Every best element is maximal.
+
+Mathematically, if `x` weakly beats everyone, then nobody can strictly beat `x`.
+-/
 lemma choiceSet_subset_maximalSet
     [DecidableEq σ] (S : Finset σ) (R : σ → σ → Prop) :
     choiceSet S R ⊆ maximalSet S R := by
@@ -284,9 +507,22 @@ end BasicDefs
 
 section QuasiOrders
 
+/-!
+## Quasi-orders and their finite maximal elements
+
+A quasi-order is only reflexive and transitive, so totality is *not* assumed here.
+The main theorem of this section is the finite analogue of a standard order-theoretic
+fact: every nonempty finite quasi-ordered set has a maximal element.
+-/
+
 variable {σ : Type*}
 
-/-- Quasi-ordering as a bundled object. -/
+/--
+A bundled quasi-order: reflexive and transitive, but not necessarily total.
+
+This is the correct generality for several finite maximality arguments.
+-/
+
 structure QuasiOrder (α : Type*) where
   rel : α → α → Prop
   refl : Reflexive rel
@@ -303,6 +539,13 @@ end QuasiOrder
 
 open Finset
 
+/--
+Every nonempty finite quasi-ordered set has a maximal element.
+
+The proof is by induction on the finite set. At each step, compare the new point `a`
+to a maximal element of the old set. Either `a` strictly beats it, in which case `a`
+is maximal in the enlarged set, or else the old maximal element remains maximal.
+-/
 lemma maximal_of_finite_quasiOrdered
     [DecidableEq σ]
     (r : QuasiOrder σ)
@@ -338,6 +581,9 @@ lemma maximal_of_finite_quasiOrdered
       refine ⟨a, by simp, ?_⟩
       simpa using isMaximal_of_singleton r.refl a
 
+/--
+For a reflexive relation, the choice set of a singleton is exactly that singleton.
+-/
 lemma choiceSet_of_singleton
     [DecidableEq σ]
     {r : σ → σ → Prop} (hr : Reflexive r) (x : σ) :
@@ -359,6 +605,12 @@ lemma choiceSet_of_singleton
     rw [hy', hz']
     exact hr x
 
+/--
+On a two-point agenda `{x,y}`, the choice set is `{x}` exactly when `x P y`.
+
+This is a useful bridge between the abstract choice-set notion and an explicit strict
+pairwise comparison.
+-/
 lemma singleton_choiceSet
     [DecidableEq σ]
     {r : σ → σ → Prop}
@@ -425,6 +677,13 @@ lemma singleton_choiceSet
         exact hR y
     exact ⟨hxy', hyx_not⟩
 
+/--
+If the choice set of a finite quasi-order is nonempty, then it coincides with the
+maximal set.
+
+The intuition is that once some best element exists, every maximal element must be
+indifferent to it and hence also be best.
+-/
 lemma choiceEq_maximal_of_quasi
     [DecidableEq σ]
     {r : QuasiOrder σ}
@@ -445,6 +704,13 @@ lemma choiceEq_maximal_of_quasi
       exact hzmax x hxS ⟨hxbest z hzS, hzx⟩
     exact r.trans hzx (hxbest y hy)
 
+/--
+On a nonempty finite quasi-order, the maximal elements are pairwise indifferent iff the
+choice set and the maximal set coincide.
+
+This is the most conceptually substantial lemma in the file outside Arrow itself.
+It characterizes when maximality collapses to full best-element status.
+-/
 lemma maximal_indiff_iff_choiceEq_maximal
     [DecidableEq σ]
     (r : QuasiOrder σ)
@@ -537,9 +803,21 @@ lemma maximal_indiff_iff_choiceEq_maximal
     exact ⟨hxbest y hyS, hybest x hxS⟩
 section PrefOrders
 
+/-!
+## Preference orders and compatibility notions
+
+We now strengthen quasi-orders to preference orders by adding totality.
+This is the structure used for individual preferences and social rankings later on.
+-/
+
 variable {σ : Type*}
 
-/-- Preference ordering as a bundled object. -/
+/--
+A bundled preference order: reflexive, transitive, and total.
+
+This is the standard formal model of a complete weak preference ordering.
+-/
+
 structure PrefOrder (α : Type*) where
   rel : α → α → Prop
   refl : Reflexive rel
@@ -553,12 +831,24 @@ namespace PrefOrder
 
 lemma eq_coe (r : PrefOrder σ) : r.rel = r := rfl
 
+/--
+Totality in contrapositive form: if `a` is not weakly above `b`, then `b` is weakly
+above `a`.
+-/
 lemma reverse {r : PrefOrder σ} {a b : σ} (h : ¬ r a b) : r b a :=
   (r.total a b).resolve_left h
 
 end PrefOrder
 
-/-- Compatibility notions from the original library. -/
+/--
+Compatibility notions used when comparing quasi-orders and preference orders.
+
+`IsSubrelation` says one quasi-order sits inside another in a way compatible with strict
+comparisons. `IsCompatible` says a quasi-order is coherently embedded into a preference
+order. These notions are not central to Arrow's theorem itself, but they belong to the
+general order-theoretic infrastructure of the library.
+-/
+
 def IsSubrelation (Q₁ Q₂ : QuasiOrder σ) : Prop :=
   ∀ x y : σ, (Q₁ x y → Q₂ x y) ∧ ((Q₁ x y ∧ ¬ Q₁ y x) → ¬ Q₂ y x)
 
