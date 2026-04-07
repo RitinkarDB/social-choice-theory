@@ -243,6 +243,7 @@ lemma mem_maximalSet_of_maximalElement
 lemma maximalSet_subset
     [DecidableEq σ] (s : Finset σ) (r : σ → σ → Prop) :
     maximalSet s r ⊆ s := by
+  classical
   intro x hx
   exact (Finset.mem_filter.mp hx).1
 
@@ -251,10 +252,12 @@ lemma isMaximal_of_singleton
     (hR : Reflexive R) (x : σ) :
     IsMaximalElement x ({x} : Finset σ) R := by
   intro y hy
-  simp at hy
-  subst hy
+  have hy' : y = x := by
+    simpa using hy
+  subst hy'
   intro h
-  exact h.2 (hR x)
+  exact h.2 (hR _)
+
 
 lemma maximalSet_eq_empty_of_empty
     [DecidableEq σ] (R : σ → σ → Prop) :
@@ -269,9 +272,10 @@ lemma choiceSet_eq_empty_of_empty
 lemma choiceSet_subset_maximalSet
     [DecidableEq σ] (S : Finset σ) (R : σ → σ → Prop) :
     choiceSet S R ⊆ maximalSet S R := by
+  classical
   intro a ha
-  rcases mem_filter.mp ha with ⟨haS, haBest⟩
-  apply mem_filter.mpr
+  rcases Finset.mem_filter.mp ha with ⟨haS, haBest⟩
+  apply Finset.mem_filter.mpr
   refine ⟨haS, ?_⟩
   intro y hy
   intro hya
@@ -339,8 +343,21 @@ lemma choiceSet_of_singleton
     [DecidableEq σ]
     {r : σ → σ → Prop} (hr : Reflexive r) (x : σ) :
     choiceSet ({x} : Finset σ) r = {x} := by
+  classical
   ext y
-  simp [choiceSet, IsBestElement, hr]
+  constructor
+  · intro hy
+    rcases Finset.mem_filter.mp hy with ⟨hyx, _⟩
+    simpa using hyx
+  · intro hy
+    apply Finset.mem_filter.mpr
+    refine ⟨by simpa using hy, ?_⟩
+    intro z hz
+    have hz' : z = x := by simpa using hz
+    subst hz'
+    have hy' : y = x := by simpa using hy
+    subst hy'
+    exact hr x
 
 lemma singleton_choiceSet
     [DecidableEq σ]
