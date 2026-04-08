@@ -1158,9 +1158,7 @@ Profiles `P` and `Q` agree on the pairwise comparison of `x` and `y` for every v
 def PairwiseAgreesOn
     {V : Type u} {A : Type v}
     (P Q : Profile V A) (x y : A) : Prop :=
-  ∀ i : V,
-    ((Profile.WeakPref P i x y ↔ Profile.WeakPref Q i x y) ∧
-     (Profile.WeakPref P i y x ↔ Profile.WeakPref Q i y x))
+  ∀ i : V, SameOrder (P i) (Q i) x y x y
 
 /--
 Independence of irrelevant alternatives: the social comparison of `x` and `y`
@@ -1171,21 +1169,36 @@ def IIA
     (F : SocialWelfareFunction V A) : Prop :=
   ∀ (P Q : Profile V A) (x y : A),
     PairwiseAgreesOn P Q x y →
-    ((SocialWelfareFunction.WeakPref F P x y ↔
-      SocialWelfareFunction.WeakPref F Q x y) ∧
-     (SocialWelfareFunction.WeakPref F P y x ↔
-      SocialWelfareFunction.WeakPref F Q y x))
+    SameOrder (F P) (F Q) x y x y
 
 namespace PairwiseAgreesOn
 
 variable {V : Type u} {A : Type v}
 variable {P Q : Profile V A} {x y : A}
 
+theorem sameOrder
+    (h : PairwiseAgreesOn P Q x y) (i : V) :
+    SameOrder (P i) (Q i) x y x y :=
+  h i
+
 theorem apply
     (h : PairwiseAgreesOn P Q x y) (i : V) :
     (Profile.WeakPref P i x y ↔ Profile.WeakPref Q i x y) ∧
     (Profile.WeakPref P i y x ↔ Profile.WeakPref Q i y x) :=
-  h i
+  (h i).1
+
+theorem strict
+    (h : PairwiseAgreesOn P Q x y) (i : V) :
+    (Profile.StrictPref P i x y ↔ Profile.StrictPref Q i x y) ∧
+    (Profile.StrictPref P i y x ↔ Profile.StrictPref Q i y x) :=
+  ⟨(h i).2.1, (h i).2.2⟩
+
+theorem swap
+    (h : PairwiseAgreesOn P Q x y) :
+    PairwiseAgreesOn P Q y x := by
+  intro i
+  rcases h i with ⟨⟨hxy, hyx⟩, hstrictxy, hstrictyx⟩
+  exact ⟨⟨hyx, hxy⟩, hstrictyx, hstrictxy⟩
 
 end PairwiseAgreesOn
 
@@ -1197,13 +1210,105 @@ theorem apply
     (h : IIA F)
     (P Q : Profile V A) (x y : A)
     (hxy : PairwiseAgreesOn P Q x y) :
+    SameOrder (F P) (F Q) x y x y :=
+  h P Q x y hxy
+
+theorem weak
+    (h : IIA F)
+    (P Q : Profile V A) (x y : A)
+    (hxy : PairwiseAgreesOn P Q x y) :
     ((SocialWelfareFunction.WeakPref F P x y ↔
       SocialWelfareFunction.WeakPref F Q x y) ∧
      (SocialWelfareFunction.WeakPref F P y x ↔
       SocialWelfareFunction.WeakPref F Q y x)) :=
-  h P Q x y hxy
+  (h.apply P Q x y hxy).1
+
+theorem strict
+    (h : IIA F)
+    (P Q : Profile V A) (x y : A)
+    (hxy : PairwiseAgreesOn P Q x y) :
+    (SocialWelfareFunction.StrictPref F P x y ↔
+      SocialWelfareFunction.StrictPref F Q x y) ∧
+    (SocialWelfareFunction.StrictPref F P y x ↔
+      SocialWelfareFunction.StrictPref F Q y x) :=
+  ⟨(h.apply P Q x y hxy).2.1, (h.apply P Q x y hxy).2.2⟩
 
 end IIA
+
+/--
+Pareto on an agenda `X`: unanimous strict preference for `x` over `y` among the
+voters implies the same strict social preference whenever `x,y ∈ X`.
+-/
+def ParetoOn
+    {V : Type u} {A : Type v}
+    (F : SocialWelfareFunction V A) (X : Finset A) : Prop :=
+  ∀ x y, x ∈ X → y ∈ X → ∀ P : Profile V A,
+    (∀ i : V, Profile.StrictPref P i x y) →
+      SocialWelfareFunction.StrictPref F P x y
+
+/-- Compatibility alias emphasising that Pareto is phrased via strict preference. -/
+abbrev StrictParetoOn
+    {V : Type u} {A : Type v}
+    (F : SocialWelfareFunction V A) (X : Finset A) : Prop :=
+  ParetoOn F X
+
+/--
+IIA on an agenda `X`: pairwise agreement on `x` versus `y` across all voters
+forces the same pairwise social order whenever `x,y ∈ X`.
+-/
+def IIAOn
+    {V : Type u} {A : Type v}
+    (F : SocialWelfareFunction V A) (X : Finset A) : Prop :=
+  ∀ (P Q : Profile V A) (x y : A),
+    x ∈ X → y ∈ X →
+    PairwiseAgreesOn P Q x y →
+    SameOrder (F P) (F Q) x y x y
+
+/--
+Voter `i` is a dictator on an agenda `X` if, for every pair in `X`, their
+strict ranking is always inherited by society.
+-/
+def IsDictatorOn
+    {V : Type u} {A : Type v}
+    (F : SocialWelfareFunction V A) (X : Finset A) (i : V) : Prop :=
+  ∀ (P : Profile V A) (x y : A),
+    x ∈ X → y ∈ X →
+    Profile.StrictPref P i x y →
+      SocialWelfareFunction.StrictPref F P x y
+
+/-- A social welfare function is dictatorial on `X` if some voter dictates it on `X`. -/
+def DictatorialOn
+    {V : Type u} {A : Type v}
+    (F : SocialWelfareFunction V A) (X : Finset A) : Prop :=
+  ∃ i : V, IsDictatorOn F X i
+
+namespace ParetoOn
+
+variable {V : Type u} {A : Type v} {F : SocialWelfareFunction V A} {X : Finset A}
+
+theorem apply
+    (h : ParetoOn F X)
+    (P : Profile V A) {x y : A}
+    (hx : x ∈ X) (hy : y ∈ X)
+    (hxy : ∀ i : V, Profile.StrictPref P i x y) :
+    SocialWelfareFunction.StrictPref F P x y :=
+  h x y hx hy P hxy
+
+end ParetoOn
+
+namespace IIAOn
+
+variable {V : Type u} {A : Type v} {F : SocialWelfareFunction V A} {X : Finset A}
+
+theorem apply
+    (h : IIAOn F X)
+    (P Q : Profile V A) (x y : A)
+    (hx : x ∈ X) (hy : y ∈ X)
+    (hxy : PairwiseAgreesOn P Q x y) :
+    SameOrder (F P) (F Q) x y x y :=
+  h P Q x y hx hy hxy
+
+end IIAOn
 
 /--
 Voter `i` is a dictator for the social welfare function `F` if, for every
@@ -1247,6 +1352,32 @@ theorem witness
   h
 
 end DictatorialSWF
+
+namespace IsDictatorOn
+
+variable {V : Type u} {A : Type v}
+variable {F : SocialWelfareFunction V A} {X : Finset A} {i : V}
+
+theorem apply
+    (h : IsDictatorOn F X i)
+    (P : Profile V A) {x y : A}
+    (hx : x ∈ X) (hy : y ∈ X)
+    (hxy : Profile.StrictPref P i x y) :
+    SocialWelfareFunction.StrictPref F P x y :=
+  h P x y hx hy hxy
+
+end IsDictatorOn
+
+namespace DictatorialOn
+
+variable {V : Type u} {A : Type v} {F : SocialWelfareFunction V A} {X : Finset A}
+
+theorem witness
+    (h : DictatorialOn F X) :
+    ∃ i : V, IsDictatorOn F X i :=
+  h
+
+end DictatorialOn
 
 end SocialChoiceVocabulary
 

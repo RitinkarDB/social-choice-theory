@@ -340,35 +340,24 @@ lemma makeabove_below {a b c : σ} {r : PrefOrder σ} (hc : c ≠ b) (hr : ¬ r 
 A profile is a function assigning each voter a preference.
 A social welfare function sends profiles to a social preference.
 
-The axioms are encoded as follows.
+The axioms are encoded through the shared vocabulary from `Basic.lean`.
 
-* `StrictParetoOn`: if everyone strictly prefers `x` to `y`, society does too.
+* `ParetoOn`: if everyone strictly prefers `x` to `y`, society does too.
 * `IIAOn`: if two profiles agree on the pairwise ordering of `x` and `y`
   for every individual, then society also agrees on that pairwise ordering.
-* `DictatorialSWFOn`: some voter's strict ranking is always inherited socially.
+* `DictatorialOn`: some voter's strict ranking is always inherited socially.
 * `IsPivotal f X i b`: voter `i` can change the social status of `b` from
   strictly worst to strictly best while the other voters keep `b` extremal.
 * `IsDictatorExcept f X i b`: voter `i` dictates every pair not involving `b`.
 -/
 
-def StrictParetoOn (f : SWF ι σ) (X : Finset σ) : Prop :=
-  ∀ x y, x ∈ X → y ∈ X → ∀ R : Profile ι σ,
-    (∀ i : ι, StrictPref (R i) x y) → StrictPref (f R) x y
-
-abbrev WeakPareto (f : SWF ι σ) (X : Finset σ) : Prop := StrictParetoOn f X
-
-def IIAOn (f : SWF ι σ) (X : Finset σ) : Prop :=
-  ∀ (R R' : Profile ι σ) (x y : σ), x ∈ X → y ∈ X →
-    (∀ i : ι, SameOrder (R i) (R' i) x y x y) →
-    SameOrder (f R) (f R') x y x y
+abbrev WeakPareto (f : SWF ι σ) (X : Finset σ) : Prop := ParetoOn f X
 
 abbrev IndOfIrrAlts (f : SWF ι σ) (X : Finset σ) : Prop := IIAOn f X
 
-def DictatorialSWFOn (f : SWF ι σ) (X : Finset σ) : Prop :=
-  ∃ i : ι, ∀ x y, x ∈ X → y ∈ X → ∀ R : Profile ι σ,
-    StrictPref (R i) x y → StrictPref (f R) x y
+abbrev DictatorialSWFOn (f : SWF ι σ) (X : Finset σ) : Prop := DictatorialOn f X
 
-abbrev IsDictatorship (f : SWF ι σ) (X : Finset σ) : Prop := DictatorialSWFOn f X
+abbrev IsDictatorship (f : SWF ι σ) (X : Finset σ) : Prop := DictatorialOn f X
 
 def IsPivotal (f : SWF ι σ) (X : Finset σ) (i : ι) (b : σ) : Prop :=
   ∃ (R R' : Profile ι σ),
@@ -396,18 +385,18 @@ and extract a useful weak chain from a social order in which `b` is not extremal
 -/
 
 theorem is_strictlyBest_of_forall_is_strictlyBest
-    (b_in : b ∈ X) (hwp : WeakPareto f X)
+    (b_in : b ∈ X) (hPareto : ParetoOn f X)
     (htop : ∀ i, IsStrictlyBest b (R i) X) :
     IsStrictlyBest b (f R) X := by
   intro a ha hab
-  exact hwp b a b_in ha R (fun i => htop i a ha hab)
+  exact hPareto b a b_in ha R (fun i => htop i a ha hab)
 
 theorem is_strictlyWorst_of_forall_is_strictlyWorst
-    (b_in : b ∈ X) (hwp : WeakPareto f X)
+    (b_in : b ∈ X) (hPareto : ParetoOn f X)
     (hbot : ∀ i, IsStrictlyWorst b (R i) X) :
     IsStrictlyWorst b (f R) X := by
   intro a ha hab
-  exact hwp a b ha b_in R (fun i => hbot i a ha hab)
+  exact hPareto a b ha b_in R (fun i => hbot i a ha hab)
 
 lemma exists_of_not_extremal
     (hX : 3 ≤ X.card) (hb : b ∈ X) (h : ¬ IsExtremal b (f R) X) :
@@ -443,7 +432,7 @@ that preserves pairwise information away from `b` but forces society to have
 -/
 
 lemma first_step
-    (hwp : WeakPareto f X) (hind : IndOfIrrAlts f X)
+    (hPareto : ParetoOn f X) (hIIA : IIAOn f X)
     (hX : 3 ≤ X.card) (hb : b ∈ X) (hextr : ∀ i, IsExtremal b (R i) X) :
     IsExtremal b (f R) X := by
   classical
@@ -458,17 +447,19 @@ lemma first_step
     intro j h
     exact makeabove_above' hcb.symm ((hextr j).isStrictlyWorst h a ha hab).1
   have hca' : StrictPref (f R') c a := by
-    exact hwp c a hc ha R' (fun j => makeabove_above (R j) hac)
+    refine hPareto c a hc ha R' ?_
+    intro j
+    simpa [R', Profile.StrictPref] using makeabove_above (R j) hac
   have h_ab :
       SameOrder (f R) (f R') a b a b := by
-    refine hind R R' a b ha hb ?_
+    refine hIIA R R' a b ha hb ?_
     intro j
     rcases makeabove_noteq (R j) a (b := c) (c := a) (d := b) hac hcb.symm with ⟨h1, h2⟩
     rcases makeabove_noteq' (R j) a (b := c) (c := a) (d := b) hac hcb.symm with ⟨h3, h4⟩
     exact ⟨⟨h1.symm, h2.symm⟩, h3.symm, h4.symm⟩
   have h_bc :
       SameOrder (f R) (f R') b c b c := by
-    refine hind R R' b c hb hc ?_
+    refine hIIA R R' b c hb hc ?_
     intro j
     rcases hextr j with hW | hB
     · have hnb : ¬ IsStrictlyBest b (R j) X := by
@@ -516,7 +507,7 @@ switch from `b`-worst to `b`-best is the pivot.
 -/
 
 lemma second_step_aux [Fintype ι] [DecidableEq ι]
-    (hwp : WeakPareto f X) (hind : IndOfIrrAlts f X)
+    (hPareto : ParetoOn f X) (hIIA : IIAOn f X)
     (hX : 2 < X.card) (b_in : b ∈ X) {D' : Finset ι} :
     ∀ {R : Profile ι σ},
       D' = worstSet R b X →
@@ -535,7 +526,7 @@ lemma second_step_aux [Fintype ι] [DecidableEq ι]
           intro hW
           exact hj (by simp [worstSet, hW]))
       have htopSoc : IsStrictlyBest b (f R) X :=
-        is_strictlyBest_of_forall_is_strictlyBest b_in hwp hallBest
+        is_strictlyBest_of_forall_is_strictlyBest b_in hPareto hallBest
       exact False.elim ((htopSoc.not_strictlyWorst' hX.le b_in) hbot)
   | @insert i D hi IH =>
       let R' : Profile ι σ := fun j => if j = i then maketop (R j) b else R j
@@ -556,7 +547,7 @@ lemma second_step_aux [Fintype ι] [DecidableEq ι]
         · simpa [R'] using is_strictlyBest_maketop b (R i) X
       · have hX3 : 3 ≤ X.card := by
           omega
-        refine IH ?_ hextr' ((first_step hwp hind hX3 b_in hextr').isStrictlyWorst hR')
+        refine IH ?_ hextr' ((first_step hPareto hIIA hX3 b_in hextr').isStrictlyWorst hR')
         ext j
         constructor
         · intro hj
@@ -587,7 +578,7 @@ lemma second_step_aux [Fintype ι] [DecidableEq ι]
             simpa [Finset.mem_insert, hji] using hjIns
 
 lemma second_step [Fintype ι] [DecidableEq ι]
-    (hwp : WeakPareto f X) (hind : IndOfIrrAlts f X)
+    (hPareto : ParetoOn f X) (hIIA : IIAOn f X)
     (hX : 3 ≤ X.card) (b : σ) (b_in : b ∈ X) :
     HasPivot f X b := by
   let R0 : Profile ι σ := fun _ => r₂ b
@@ -595,13 +586,13 @@ lemma second_step [Fintype ι] [DecidableEq ι]
     intro a ha hab
     simp [r₂, StrictPref, hab]
   have hbot : IsStrictlyWorst b (f R0) X := by
-    exact is_strictlyWorst_of_forall_is_strictlyWorst b_in hwp (fun _ => hbot_ind)
+    exact is_strictlyWorst_of_forall_is_strictlyWorst b_in hPareto (fun _ => hbot_ind)
   have hextr : ∀ i, IsExtremal b (R0 i) X := by
     intro i
     exact hbot_ind.isExtremal
   refine second_step_aux
       (D' := worstSet R0 b X)
-      hwp hind (by omega) b_in
+      hPareto hIIA (by omega) b_in
       (R := R0)
       rfl
       hextr
@@ -621,7 +612,7 @@ follow voter `i` on the pair `(c,a)`.
 -/
 
 lemma third_step
-    (hind : IndOfIrrAlts f X)
+    (hIIA : IIAOn f X)
     (b_in : b ∈ X) {i : ι} (i_piv : IsPivotal f X i b) :
     IsDictatorExcept f X i b := by
   classical
@@ -667,7 +658,7 @@ lemma third_step
               ⟨⟨h1.symm, h2.symm⟩, h3.symm, h4.symm⟩)
     exact hsuff a hab c hcb
   have h_cb : SameOrder (f R) (f Q') c b c b := by
-    refine hind R Q' c b c_in b_in ?_
+    refine hIIA R Q' c b c_in b_in ?_
     intro j
     rcases eq_or_ne j i with rfl | hj
     · have hnew : StrictPref (Q' j) c b := by
@@ -684,7 +675,7 @@ lemma third_step
           exact is_strictlyBest_maketop b (Q j) X c c_in hcb
         exact sameOrder_of_reverse_strict (hB c c_in hcb) hnew
   have h_ba : SameOrder (f R') (f Q') b a b a := by
-    refine hind R' Q' b a b_in a_in ?_
+    refine hIIA R' Q' b a b_in a_in ?_
     intro j
     rcases eq_or_ne j i with rfl | hj
     · have hnew : StrictPref (Q' j) b a := by
@@ -711,7 +702,7 @@ lemma third_step
     exact (h_ba.2.1).mp (htop_soc a a_in hab)
   have hca' : StrictPref (f Q') c a := by
     exact strictPref_trans (f Q').trans hcb' hba'
-  exact (hind Q Q' c a c_in a_in hQ').2.1.mpr hca'
+  exact (hIIA Q Q' c a c_in a_in hQ').2.1.mpr hca'
 
 /-! ## Step 4: from one excluded alternative to full dictatorship
 
@@ -722,9 +713,9 @@ must in fact be the same `i`. This extends dictatorship to all pairs.
 -/
 
 lemma fourth_step
-    (hind : IndOfIrrAlts f X)
+    (hIIA : IIAOn f X)
     (hX : 3 ≤ X.card) (hpiv : ∀ b ∈ X, HasPivot f X b) :
-    IsDictatorship f X := by
+    DictatorialOn f X := by
   classical
   have hXpos : 0 < X.card := by
     omega
@@ -739,7 +730,7 @@ lemma fourth_step
     have hac : a ≠ c := hca.symm
     have hbc : b ≠ c := hcb.symm
     rcases hpiv c hc with ⟨j, j_piv⟩
-    have hdict := third_step hind hc j_piv
+    have hdict := third_step hIIA hc j_piv
     have hji : j = i := by
       by_contra hne
       rcases i_piv with ⟨R, R', hso, hextr, hextr', hbot_i, htop_i, hbot_soc, htop_soc⟩
@@ -760,20 +751,20 @@ lemma fourth_step
     · intro hP
       exact hdict a b ha hb hac hbc Rᵢ hP
   refine ⟨i, ?_⟩
-  intro x y hx hy Rᵢ hRᵢ
+  intro Rᵢ x y hx hy hRᵢ
   rcases eq_or_ne b x with rfl | hbx
   · rcases eq_or_ne b y with rfl | hby
     · exact False.elim (false_of_strictPref_self hRᵢ)
     · exact (h y hy hby.symm Rᵢ).2 hRᵢ
   · rcases eq_or_ne b y with rfl | hby
     · exact (h x hx hbx.symm Rᵢ).1 hRᵢ
-    · exact third_step hind hb i_piv y x hy hx hby.symm hbx.symm Rᵢ hRᵢ
+    · exact third_step hIIA hb i_piv y x hy hx hby.symm hbx.symm Rᵢ hRᵢ
 
 /-- Arrow's impossibility theorem: weak Pareto + IIA on an agenda with at least
 three alternatives implies dictatorship. -/
 theorem arrow [Fintype ι] [DecidableEq ι]
-    (hwp : WeakPareto f X) (hind : IndOfIrrAlts f X) (hX : 3 ≤ X.card) :
-    IsDictatorship f X := by
-  exact fourth_step hind hX (second_step hwp hind hX)
+    (hPareto : ParetoOn f X) (hIIA : IIAOn f X) (hX : 3 ≤ X.card) :
+    DictatorialOn f X := by
+  exact fourth_step hIIA hX (second_step hPareto hIIA hX)
 
 end SocialChoiceTheory

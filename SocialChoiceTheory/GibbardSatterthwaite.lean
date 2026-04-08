@@ -192,6 +192,36 @@ def IsChoiceDictatorship (g : SCF ι σ) (X : Finset σ) : Prop :=
 def weakProfileOf (P : SProfile ι σ) : Profile ι σ :=
   fun i => (P i).toPreference
 
+namespace StrictProfile
+
+/--
+Strict profiles `P` and `Q` agree on the pair `(x,y)` when each voter's
+forward-facing weak preference induces the same pairwise order on that pair.
+-/
+def PairwiseAgreesOn
+    (P Q : StrictProfile ι σ) (x y : σ) : Prop :=
+  ∀ i : ι, SameOrder ((P i).toPreference) ((Q i).toPreference) x y x y
+
+namespace PairwiseAgreesOn
+
+variable {P Q : StrictProfile ι σ} {x y : σ}
+
+theorem apply
+    (h : PairwiseAgreesOn P Q x y) (i : ι) :
+    SameOrder ((P i).toPreference) ((Q i).toPreference) x y x y :=
+  h i
+
+theorem swap
+    (h : PairwiseAgreesOn P Q x y) :
+    PairwiseAgreesOn P Q y x := by
+  intro i
+  rcases h i with ⟨⟨hxy, hyx⟩, hstrictxy, hstrictyx⟩
+  exact ⟨⟨hyx, hxy⟩, hstrictyx, hstrictxy⟩
+
+end PairwiseAgreesOn
+
+end StrictProfile
+
 end StrictBallots
 
 section Top
@@ -629,6 +659,51 @@ def swfStrict
     (P : SProfile ι σ) : σ → σ → Prop :=
   fun a b => a ≠ b ∧ g (topProfile ({a, b} : Finset σ) P) = b
 
+/--
+Forward strict social comparison induced by the pair-top construction.
+
+`socialPrefers g P x y` means that after moving `{x,y}` to the top, the choice
+function picks `x`, so `x` is socially ranked above `y`.
+-/
+def socialPrefers
+    (g : StrictSocialChoiceFunction ι σ)
+    (P : StrictProfile ι σ) : σ → σ → Prop :=
+  fun x y => swfStrict g P y x
+
+namespace StrictSocialRelation
+
+/-- Pareto on strict-ballot profiles, phrased in the forward `prefers` language. -/
+def ParetoOn
+    (f : StrictProfile ι σ → σ → σ → Prop) (X : Finset σ) : Prop :=
+  ∀ x y, x ∈ X → y ∈ X → ∀ P : StrictProfile ι σ,
+    (∀ i : ι, (P i).prefers x y) → f P x y
+
+/--
+IIA on strict-ballot profiles: agreement on the forward-facing ballot views for
+`x` versus `y` implies the same strict social verdict on that pair.
+-/
+def IIAOn
+    (f : StrictProfile ι σ → σ → σ → Prop) (X : Finset σ) : Prop :=
+  ∀ P Q : StrictProfile ι σ, ∀ x y,
+    x ∈ X → y ∈ X →
+    StrictProfile.PairwiseAgreesOn P Q x y →
+    ((f P x y ↔ f Q x y) ∧
+     (f P y x ↔ f Q y x))
+
+/-- Voter `i` dictates a strict social relation on `X`. -/
+def IsDictatorOn
+    (f : StrictProfile ι σ → σ → σ → Prop) (X : Finset σ) (i : ι) : Prop :=
+  ∀ P : StrictProfile ι σ, ∀ x y : σ,
+    x ∈ X → y ∈ X →
+    (f P x y ↔ (P i).prefers x y)
+
+/-- Some voter dictates the strict social relation on `X`. -/
+def DictatorialOn
+    (f : StrictProfile ι σ → σ → σ → Prop) (X : Finset σ) : Prop :=
+  ∃ i : ι, IsDictatorOn f X i
+
+end StrictSocialRelation
+
 lemma topProfile_pair_strict_iff'
     (P : SProfile ι σ) (a b : σ) (i : ι)
     (hab : a ≠ b) :
@@ -669,6 +744,110 @@ lemma topProfile_pair_sameOrder'
   · intro h
     exact ((topProfile_pair_strict_iff' P' a b i hab).1 h |> h1.mpr
       |> (topProfile_pair_strict_iff' P a b i hab).2)
+
+lemma sameOrder_toPreference_iff_toPrefOrder_rev
+    (L L' : LinBallot σ) (x y : σ) :
+    SameOrder (L.toPreference) (L'.toPreference) x y x y ↔
+      SameOrder (L.toPrefOrder) (L'.toPrefOrder) y x y x := by
+  constructor
+  · intro h
+    rcases h with ⟨⟨hxy, hyx⟩, hstrictxy, hstrictyx⟩
+    refine ⟨⟨?_, ?_⟩, ?_, ?_⟩
+    · simpa [LinBallot.toPrefOrder_eq_or_lt, LinBallot.toPreference_eq_or_prefers,
+        LinBallot.prefers, eq_comm] using hxy
+    · simpa [LinBallot.toPrefOrder_eq_or_lt, LinBallot.toPreference_eq_or_prefers,
+        LinBallot.prefers, eq_comm] using hyx
+    · constructor
+      · intro hL
+        have hlt : L.lt y x :=
+          (LinBallot.toPrefOrder_strict_iff (L := L) (x := y) (y := x)).1 hL
+        have hpref : Preference.StrictPref (L.toPreference) x y :=
+          (LinBallot.toPreference_strictPref_iff (L := L) (x := x) (y := y)).2 hlt
+        have hpref' : Preference.StrictPref (L'.toPreference) x y := hstrictxy.mp hpref
+        have hlt' : L'.lt y x :=
+          (LinBallot.toPreference_strictPref_iff (L := L') (x := x) (y := y)).1 hpref'
+        exact (LinBallot.toPrefOrder_strict_iff (L := L') (x := y) (y := x)).2 hlt'
+      · intro hL'
+        have hlt' : L'.lt y x :=
+          (LinBallot.toPrefOrder_strict_iff (L := L') (x := y) (y := x)).1 hL'
+        have hpref' : Preference.StrictPref (L'.toPreference) x y :=
+          (LinBallot.toPreference_strictPref_iff (L := L') (x := x) (y := y)).2 hlt'
+        have hpref : Preference.StrictPref (L.toPreference) x y := hstrictxy.mpr hpref'
+        have hlt : L.lt y x :=
+          (LinBallot.toPreference_strictPref_iff (L := L) (x := x) (y := y)).1 hpref
+        exact (LinBallot.toPrefOrder_strict_iff (L := L) (x := y) (y := x)).2 hlt
+    · constructor
+      · intro hL
+        have hlt : L.lt x y :=
+          (LinBallot.toPrefOrder_strict_iff (L := L) (x := x) (y := y)).1 hL
+        have hpref : Preference.StrictPref (L.toPreference) y x :=
+          (LinBallot.toPreference_strictPref_iff (L := L) (x := y) (y := x)).2 hlt
+        have hpref' : Preference.StrictPref (L'.toPreference) y x := hstrictyx.mp hpref
+        have hlt' : L'.lt x y :=
+          (LinBallot.toPreference_strictPref_iff (L := L') (x := y) (y := x)).1 hpref'
+        exact (LinBallot.toPrefOrder_strict_iff (L := L') (x := x) (y := y)).2 hlt'
+      · intro hL'
+        have hlt' : L'.lt x y :=
+          (LinBallot.toPrefOrder_strict_iff (L := L') (x := x) (y := y)).1 hL'
+        have hpref' : Preference.StrictPref (L'.toPreference) y x :=
+          (LinBallot.toPreference_strictPref_iff (L := L') (x := y) (y := x)).2 hlt'
+        have hpref : Preference.StrictPref (L.toPreference) y x := hstrictyx.mpr hpref'
+        have hlt : L.lt x y :=
+          (LinBallot.toPreference_strictPref_iff (L := L) (x := y) (y := x)).1 hpref
+        exact (LinBallot.toPrefOrder_strict_iff (L := L) (x := x) (y := y)).2 hlt
+  · intro h
+    rcases h with ⟨⟨hyx, hxy⟩, hstrictyx, hstrictxy⟩
+    refine ⟨⟨?_, ?_⟩, ?_, ?_⟩
+    · simpa [LinBallot.toPrefOrder_eq_or_lt, LinBallot.toPreference_eq_or_prefers,
+        LinBallot.prefers, eq_comm] using hyx
+    · simpa [LinBallot.toPrefOrder_eq_or_lt, LinBallot.toPreference_eq_or_prefers,
+        LinBallot.prefers, eq_comm] using hxy
+    · constructor
+      · intro hL
+        have hlt : L.lt y x :=
+          (LinBallot.toPreference_strictPref_iff (L := L) (x := x) (y := y)).1 hL
+        have hstrict : StrictPref (L.toPrefOrder) y x :=
+          (LinBallot.toPrefOrder_strict_iff (L := L) (x := y) (y := x)).2 hlt
+        have hstrict' : StrictPref (L'.toPrefOrder) y x := hstrictyx.mp hstrict
+        exact (LinBallot.toPreference_strictPref_iff (L := L') (x := x) (y := y)).2
+          ((LinBallot.toPrefOrder_strict_iff (L := L') (x := y) (y := x)).1 hstrict')
+      · intro hL'
+        have hlt' : L'.lt y x :=
+          (LinBallot.toPreference_strictPref_iff (L := L') (x := x) (y := y)).1 hL'
+        have hstrict' : StrictPref (L'.toPrefOrder) y x :=
+          (LinBallot.toPrefOrder_strict_iff (L := L') (x := y) (y := x)).2 hlt'
+        have hstrict : StrictPref (L.toPrefOrder) y x := hstrictyx.mpr hstrict'
+        exact (LinBallot.toPreference_strictPref_iff (L := L) (x := x) (y := y)).2
+          ((LinBallot.toPrefOrder_strict_iff (L := L) (x := y) (y := x)).1 hstrict)
+    · constructor
+      · intro hL
+        have hlt : L.lt x y :=
+          (LinBallot.toPreference_strictPref_iff (L := L) (x := y) (y := x)).1 hL
+        have hstrict : StrictPref (L.toPrefOrder) x y :=
+          (LinBallot.toPrefOrder_strict_iff (L := L) (x := x) (y := y)).2 hlt
+        have hstrict' : StrictPref (L'.toPrefOrder) x y := hstrictxy.mp hstrict
+        exact (LinBallot.toPreference_strictPref_iff (L := L') (x := y) (y := x)).2
+          ((LinBallot.toPrefOrder_strict_iff (L := L') (x := x) (y := y)).1 hstrict')
+      · intro hL'
+        have hlt' : L'.lt x y :=
+          (LinBallot.toPreference_strictPref_iff (L := L') (x := y) (y := x)).1 hL'
+        have hstrict' : StrictPref (L'.toPrefOrder) x y :=
+          (LinBallot.toPrefOrder_strict_iff (L := L') (x := x) (y := y)).2 hlt'
+        have hstrict : StrictPref (L.toPrefOrder) x y := hstrictxy.mpr hstrict'
+        exact (LinBallot.toPreference_strictPref_iff (L := L) (x := y) (y := x)).2
+          ((LinBallot.toPrefOrder_strict_iff (L := L) (x := x) (y := y)).1 hstrict)
+
+namespace StrictProfile.PairwiseAgreesOn
+
+variable {P Q : StrictProfile ι σ} {x y : σ}
+
+theorem toLegacy
+    (h : StrictProfile.PairwiseAgreesOn P Q x y) :
+    ∀ i : ι, SameOrder ((P i).toPrefOrder) ((Q i).toPrefOrder) y x y x := by
+  intro i
+  exact (sameOrder_toPreference_iff_toPrefOrder_rev (P i) (Q i) x y).1 (h i)
+
+end StrictProfile.PairwiseAgreesOn
 
 lemma binary_top_choice_eq_left
     (g : SCF ι σ) (X : Finset σ)
@@ -945,6 +1124,70 @@ theorem gibbard_satterthwaite
   have hdict : SIsDictatorshipStrict (swfStrict g) X :=
     harrow hwp hiia
   exact swfStrict_dictator_implies_choice_dictator g X hchoose honto hnm hdict
+
+lemma socialPrefers_pareto
+    (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
+    (hchoose : ChoosesFrom g X)
+    (honto : OntoOn g X)
+    (hnm : NonManipulable g X) :
+    StrictSocialRelation.ParetoOn (socialPrefers g) X := by
+  intro x y hx hy P hxy
+  exact swfStrict_weakPareto g X hchoose honto hnm y x hy hx P
+    (by
+      intro i
+      simpa [LinBallot.prefers] using hxy i)
+
+lemma socialPrefers_iia
+    (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
+    (hchoose : ChoosesFrom g X)
+    (honto : OntoOn g X)
+    (hnm : NonManipulable g X) :
+    StrictSocialRelation.IIAOn (socialPrefers g) X := by
+  intro P Q x y hx hy hxy
+  have hlegacy_xy :
+      ∀ i : ι, SameOrder ((P i).toPrefOrder) ((Q i).toPrefOrder) y x y x :=
+    StrictProfile.PairwiseAgreesOn.toLegacy hxy
+  have hlegacy_yx :
+      ∀ i : ι, SameOrder ((P i).toPrefOrder) ((Q i).toPrefOrder) x y x y :=
+    StrictProfile.PairwiseAgreesOn.toLegacy (StrictProfile.PairwiseAgreesOn.swap hxy)
+  constructor
+  · simpa [socialPrefers] using
+      (swfStrict_iia g X hchoose honto hnm P Q y x hy hx hlegacy_xy)
+  · simpa [socialPrefers] using
+      (swfStrict_iia g X hchoose honto hnm P Q x y hx hy hlegacy_yx)
+
+lemma socialPrefers_dictatorial_implies_choice_dictator
+    (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
+    (hchoose : ChoosesFrom g X)
+    (honto : OntoOn g X)
+    (hnm : NonManipulable g X)
+    (hdict : StrictSocialRelation.DictatorialOn (socialPrefers g) X) :
+    IsChoiceDictatorship g X := by
+  have hlegacy : SIsDictatorshipStrict (swfStrict g) X := by
+    rcases hdict with ⟨i, hi⟩
+    refine ⟨i, ?_⟩
+    intro P a b ha hb
+    simpa [socialPrefers, LinBallot.prefers] using hi P b a hb ha
+  exact swfStrict_dictator_implies_choice_dictator g X hchoose honto hnm hlegacy
+
+theorem gibbardSatterthwaite
+    (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
+    (hchoose : ChoosesFrom g X)
+    (honto : OntoOn g X)
+    (hnm : NonManipulable g X)
+    (_hX : 3 ≤ X.card)
+    (harrow :
+      StrictSocialRelation.ParetoOn (socialPrefers g) X →
+      StrictSocialRelation.IIAOn (socialPrefers g) X →
+      StrictSocialRelation.DictatorialOn (socialPrefers g) X) :
+    IsChoiceDictatorship g X := by
+  have hPareto : StrictSocialRelation.ParetoOn (socialPrefers g) X :=
+    socialPrefers_pareto g X hchoose honto hnm
+  have hIIA : StrictSocialRelation.IIAOn (socialPrefers g) X :=
+    socialPrefers_iia g X hchoose honto hnm
+  have hDict : StrictSocialRelation.DictatorialOn (socialPrefers g) X :=
+    harrow hPareto hIIA
+  exact socialPrefers_dictatorial_implies_choice_dictator g X hchoose honto hnm hDict
 
 end TopUnanimityAndStrictRoute
 
