@@ -11,11 +11,7 @@ namespace SocialChoiceTheory
 # Gibbard-Satterthwaite from Arrow
 
 This file is a Lean 4 skeleton for deriving Gibbard-Satterthwaite
-from Arrow's theorem, following the proof strategy in:
-
-Tobias Nipkow, "Social Choice Theory in HOL: Arrow and
-Gibbard-Satterthwaite".
-
+from Arrow's theorem
 The key design choice is to separate:
 
 1. the **choice side**, where ballots are strict linear orders (`LinBallot`),
@@ -902,7 +898,7 @@ lemma swfStrict_dictator_implies_choice_dictator
   exact hdict_qw.mp hqw
 
 
-  
+
 
 theorem gibbard_satterthwaite
     (g : SCF ι σ) (X : Finset σ)
