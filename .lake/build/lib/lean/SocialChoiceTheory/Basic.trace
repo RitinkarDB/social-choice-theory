@@ -3,25 +3,25 @@
    ".> LEAN_PATH=/Users/ritinkardasbhaumik/social-choice-theory/.lake/packages/Cli/.lake/build/lib/lean:/Users/ritinkardasbhaumik/social-choice-theory/.lake/packages/batteries/.lake/build/lib/lean:/Users/ritinkardasbhaumik/social-choice-theory/.lake/packages/Qq/.lake/build/lib/lean:/Users/ritinkardasbhaumik/social-choice-theory/.lake/packages/aesop/.lake/build/lib/lean:/Users/ritinkardasbhaumik/social-choice-theory/.lake/packages/proofwidgets/.lake/build/lib/lean:/Users/ritinkardasbhaumik/social-choice-theory/.lake/packages/importGraph/.lake/build/lib/lean:/Users/ritinkardasbhaumik/social-choice-theory/.lake/packages/LeanSearchClient/.lake/build/lib/lean:/Users/ritinkardasbhaumik/social-choice-theory/.lake/packages/plausible/.lake/build/lib/lean:/Users/ritinkardasbhaumik/social-choice-theory/.lake/packages/mathlib/.lake/build/lib/lean:/Users/ritinkardasbhaumik/social-choice-theory/.lake/packages/Canonical/.lake/build/lib/lean:/Users/ritinkardasbhaumik/social-choice-theory/.lake/build/lib/lean /Users/ritinkardasbhaumik/.elan/toolchains/leanprover--lean4---v4.20.0-rc5/bin/lean /Users/ritinkardasbhaumik/social-choice-theory/SocialChoiceTheory/Basic.lean -R /Users/ritinkardasbhaumik/social-choice-theory -o /Users/ritinkardasbhaumik/social-choice-theory/.lake/build/lib/lean/SocialChoiceTheory/Basic.olean -i /Users/ritinkardasbhaumik/social-choice-theory/.lake/build/lib/lean/SocialChoiceTheory/Basic.ilean -c /Users/ritinkardasbhaumik/social-choice-theory/.lake/build/ir/SocialChoiceTheory/Basic.c --json",
    "level": "trace"},
   {"message":
-   "/Users/ritinkardasbhaumik/social-choice-theory/SocialChoiceTheory/Basic.lean:65:4: try 'simp' instead of 'simpa'\nnote: this linter can be disabled with `set_option linter.unnecessarySimpa false`",
+   "/Users/ritinkardasbhaumik/social-choice-theory/SocialChoiceTheory/Basic.lean:66:4: try 'simp' instead of 'simpa'\nnote: this linter can be disabled with `set_option linter.unnecessarySimpa false`",
    "level": "warning"},
   {"message":
-   "/Users/ritinkardasbhaumik/social-choice-theory/SocialChoiceTheory/Basic.lean:54:0: automatically included section variable(s) unused in theorem 'SocialChoiceTheory.Finset.existsDistinctMemOfNeSingleton':\n  [DecidableEq α]\nconsider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:\n  omit [DecidableEq α] in theorem ...\nnote: this linter can be disabled with `set_option linter.unusedSectionVars false`",
+   "/Users/ritinkardasbhaumik/social-choice-theory/SocialChoiceTheory/Basic.lean:55:0: automatically included section variable(s) unused in theorem 'SocialChoiceTheory.Finset.existsDistinctMemOfNeSingleton':\n  [DecidableEq α]\nconsider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:\n  omit [DecidableEq α] in theorem ...\nnote: this linter can be disabled with `set_option linter.unusedSectionVars false`",
    "level": "warning"},
   {"message":
-   "/Users/ritinkardasbhaumik/social-choice-theory/SocialChoiceTheory/Basic.lean:127:0: automatically included section variable(s) unused in theorem 'SocialChoiceTheory.Finset.nonemptyOfMem':\n  [DecidableEq α]\nconsider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:\n  omit [DecidableEq α] in theorem ...\nnote: this linter can be disabled with `set_option linter.unusedSectionVars false`",
+   "/Users/ritinkardasbhaumik/social-choice-theory/SocialChoiceTheory/Basic.lean:128:0: automatically included section variable(s) unused in theorem 'SocialChoiceTheory.Finset.nonemptyOfMem':\n  [DecidableEq α]\nconsider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:\n  omit [DecidableEq α] in theorem ...\nnote: this linter can be disabled with `set_option linter.unusedSectionVars false`",
    "level": "warning"},
   {"message":
-   "/Users/ritinkardasbhaumik/social-choice-theory/SocialChoiceTheory/Basic.lean:141:0: automatically included section variable(s) unused in theorem 'SocialChoiceTheory.Relation.forallExistsTransGen':\n  [DecidableEq α]\nconsider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:\n  omit [DecidableEq α] in theorem ...\nnote: this linter can be disabled with `set_option linter.unusedSectionVars false`",
+   "/Users/ritinkardasbhaumik/social-choice-theory/SocialChoiceTheory/Basic.lean:142:0: automatically included section variable(s) unused in theorem 'SocialChoiceTheory.Relation.forallExistsTransGen':\n  [DecidableEq α]\nconsider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:\n  omit [DecidableEq α] in theorem ...\nnote: this linter can be disabled with `set_option linter.unusedSectionVars false`",
    "level": "warning"},
   {"message":
-   "/Users/ritinkardasbhaumik/social-choice-theory/SocialChoiceTheory/Basic.lean:599:15: try 'simp' instead of 'simpa'\nnote: this linter can be disabled with `set_option linter.unnecessarySimpa false`",
+   "/Users/ritinkardasbhaumik/social-choice-theory/SocialChoiceTheory/Basic.lean:600:15: try 'simp' instead of 'simpa'\nnote: this linter can be disabled with `set_option linter.unnecessarySimpa false`",
    "level": "warning"},
   {"message":
-   "/Users/ritinkardasbhaumik/social-choice-theory/SocialChoiceTheory/Basic.lean:628:17: try 'simp' instead of 'simpa'\nnote: this linter can be disabled with `set_option linter.unnecessarySimpa false`",
+   "/Users/ritinkardasbhaumik/social-choice-theory/SocialChoiceTheory/Basic.lean:629:17: try 'simp' instead of 'simpa'\nnote: this linter can be disabled with `set_option linter.unnecessarySimpa false`",
    "level": "warning"},
   {"message":
-   "/Users/ritinkardasbhaumik/social-choice-theory/SocialChoiceTheory/Basic.lean:640:8: try 'simp' instead of 'simpa'\nnote: this linter can be disabled with `set_option linter.unnecessarySimpa false`",
+   "/Users/ritinkardasbhaumik/social-choice-theory/SocialChoiceTheory/Basic.lean:641:8: try 'simp' instead of 'simpa'\nnote: this linter can be disabled with `set_option linter.unnecessarySimpa false`",
    "level": "warning"}],
  "inputs":
  [["SocialChoiceTheory.Basic:deps",
@@ -58,5 +58,5 @@
    "11339845437623234285"],
   ["Module.leanArgs: #[]", "1723"],
   ["/Users/ritinkardasbhaumik/social-choice-theory/SocialChoiceTheory/Basic.lean",
-   "648039288521337955"]],
- "depHash": "14081397383813651519"}
+   "9585469381396094448"]],
+ "depHash": "13245337897281247544"}

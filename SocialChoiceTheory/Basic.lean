@@ -31,9 +31,10 @@ maximal set, and choice set. These are abstract order-theoretic notions, not yet
 Arrow-specific.
 
 Fourth, it introduces bundled structures for quasi-orders and preference orders.
-A `QuasiOrder` is reflexive and transitive. A `PrefOrder` is reflexive, transitive,
-and total. This bundled formulation is convenient later because social welfare
-functions return preference orders.
+A `QuasiOrder` is reflexive and transitive. A `PrefOrder` is reflexive,
+transitive, and total; later in the file we also expose the eco-lean-aligned
+alias `Preference` for the same structure. This bundled formulation is
+convenient later because social welfare functions return preferences.
 
 The later Arrow file uses all of this as its "algebra of pairwise comparisons".
 -/
@@ -856,6 +857,398 @@ def IsCompatible (Q : QuasiOrder σ) (R : PrefOrder σ) : Prop :=
   ∀ x y : σ, (Q x y → R x y) ∧ ((Q x y ∧ ¬ Q y x) → ¬ R y x)
 
 end PrefOrders
+
+section SocialChoiceVocabulary
+
+universe u v
+
+/-!
+## EcoLean-style social-choice vocabulary
+
+The original development in this repository is phrased in terms of `PrefOrder`,
+an explicit bundled complete weak order.  The `eco-lean` project instead uses
+the terminology `Preference`, `Profile`, `SocialChoiceFunction`, and
+`SocialWelfareFunction`, with weak preference as the primitive notion and strict
+preference and indifference derived from it.
+
+To make the two libraries interoperate smoothly, we expose that vocabulary here
+as definitional wrappers around the existing infrastructure.  This keeps the
+Arrow development stable while giving downstream files a shared language.
+-/
+
+/--
+`Preference A` is the eco-lean-aligned name for a complete weak preference on `A`.
+
+It is a thin wrapper around `PrefOrder A`, with coercions in both directions so
+existing proofs using `PrefOrder` continue to work unchanged while downstream
+files can use the `Preference` vocabulary directly.
+-/
+structure Preference (A : Type u) where
+  toPrefOrder : PrefOrder A
+
+namespace Preference
+
+variable {A : Type u} (P : Preference A)
+
+instance : Coe (Preference A) (PrefOrder A) where
+  coe P := P.toPrefOrder
+
+instance : Coe (PrefOrder A) (Preference A) where
+  coe r := ⟨r⟩
+
+instance : CoeFun (Preference A) (fun _ => A → A → Prop) where
+  coe P := P.toPrefOrder.rel
+
+theorem refl : Reflexive P :=
+  P.toPrefOrder.refl
+
+theorem total : _root_.Total P :=
+  P.toPrefOrder.total
+
+theorem trans : _root_.Transitive P :=
+  P.toPrefOrder.trans
+
+/-- Primitive weak preference relation. -/
+@[simp] abbrev weakPref : A → A → Prop := P.toPrefOrder.rel
+
+/-- Strict preference derived from weak preference. -/
+def StrictPref (x y : A) : Prop :=
+  SocialChoiceTheory.StrictPref P x y
+
+/-- Indifference derived from weak preference. -/
+def Indiff (x y : A) : Prop :=
+  SocialChoiceTheory.Indiff P x y
+
+/-- Completeness of weak preference. -/
+def Complete : Prop :=
+  _root_.Total P.weakPref
+
+/-- Transitivity of weak preference. -/
+def Transitive : Prop :=
+  _root_.Transitive P.weakPref
+
+theorem complete : P.Complete :=
+  P.total
+
+theorem transitive : P.Transitive :=
+  P.trans
+
+theorem weakPref_refl_of_complete
+    (hC : P.Complete) (x : A) :
+    P.weakPref x x := by
+  cases hC x x with
+  | inl hxx => exact hxx
+  | inr hxx => exact hxx
+
+@[simp] theorem strictPref_def
+    (x y : A) :
+    P.StrictPref x y ↔ (P.weakPref x y ∧ ¬ P.weakPref y x) := by
+  rfl
+
+@[simp] theorem indiff_def
+    (x y : A) :
+    P.Indiff x y ↔ (P.weakPref x y ∧ P.weakPref y x) := by
+  rfl
+
+end Preference
+
+scoped notation:50 x " ≽[" P "] " y => Preference.weakPref P x y
+scoped notation:50 x " ≻[" P "] " y => Preference.StrictPref P x y
+scoped notation:50 x " ∼[" P "] " y => Preference.Indiff P x y
+
+/--
+A preference profile assigns a preference relation over alternatives to each voter.
+-/
+abbrev Profile (V : Type u) (A : Type v) : Type (max u v) :=
+  V → Preference A
+
+namespace Profile
+
+variable {V : Type u} {A : Type v}
+
+/-- The preference of voter `i` in profile `P`. -/
+@[simp] abbrev pref (P : Profile V A) (i : V) : Preference A :=
+  P i
+
+/-- Voter `i` weakly prefers `x` to `y` under profile `P`. -/
+def WeakPref (P : Profile V A) (i : V) (x y : A) : Prop :=
+  (P i).weakPref x y
+
+/-- Voter `i` strictly prefers `x` to `y` under profile `P`. -/
+def StrictPref (P : Profile V A) (i : V) (x y : A) : Prop :=
+  (P i).StrictPref x y
+
+/-- Voter `i` is indifferent between `x` and `y` under profile `P`. -/
+def Indiff (P : Profile V A) (i : V) (x y : A) : Prop :=
+  (P i).Indiff x y
+
+scoped notation:50 x " ≽[" P "," i "] " y => Profile.WeakPref P i x y
+scoped notation:50 x " ≻[" P "," i "] " y => Profile.StrictPref P i x y
+scoped notation:50 x " ∼[" P "," i "] " y => Profile.Indiff P i x y
+
+theorem strictPref_def_notation
+    (P : Profile V A) (i : V) (x y : A) :
+    (x ≻[P,i] y) ↔ ((x ≽[P,i] y) ∧ ¬ (y ≽[P,i] x)) := by
+  rfl
+
+theorem indiff_def_notation
+    (P : Profile V A) (i : V) (x y : A) :
+    (x ∼[P,i] y) ↔ ((x ≽[P,i] y) ∧ (y ≽[P,i] x)) := by
+  rfl
+
+end Profile
+
+/-- A social choice function assigns a chosen alternative to each preference profile. -/
+abbrev SocialChoiceFunction (V : Type u) (A : Type v) : Type (max u v) :=
+  Profile V A → A
+
+namespace SocialChoiceFunction
+
+variable {V : Type u} {A : Type v}
+
+/-- Evaluate a social choice function at a profile. -/
+@[simp] abbrev eval (f : SocialChoiceFunction V A) (P : Profile V A) : A :=
+  f P
+
+end SocialChoiceFunction
+
+/--
+A social welfare function assigns a social preference relation to each profile.
+-/
+abbrev SocialWelfareFunction (V : Type u) (A : Type v) : Type (max u v) :=
+  Profile V A → Preference A
+
+/-- Compatibility alias for the older Arrow development. -/
+abbrev SWF (V : Type u) (A : Type v) := SocialWelfareFunction V A
+
+namespace SocialWelfareFunction
+
+variable {V : Type u} {A : Type v}
+
+/-- Evaluate a social welfare function at a profile. -/
+@[simp] abbrev eval (F : SocialWelfareFunction V A) (P : Profile V A) : Preference A :=
+  F P
+
+/-- The social weak preference induced by `F` at profile `P`. -/
+def WeakPref (F : SocialWelfareFunction V A) (P : Profile V A) (x y : A) : Prop :=
+  (F P).weakPref x y
+
+/-- The social strict preference induced by `F` at profile `P`. -/
+def StrictPref (F : SocialWelfareFunction V A) (P : Profile V A) (x y : A) : Prop :=
+  (F P).StrictPref x y
+
+/-- The social indifference induced by `F` at profile `P`. -/
+def Indiff (F : SocialWelfareFunction V A) (P : Profile V A) (x y : A) : Prop :=
+  (F P).Indiff x y
+
+scoped notation:50 x " ≽ₛ[" F "," P "] " y => SocialWelfareFunction.WeakPref F P x y
+scoped notation:50 x " ≻ₛ[" F "," P "] " y => SocialWelfareFunction.StrictPref F P x y
+scoped notation:50 x " ∼ₛ[" F "," P "] " y => SocialWelfareFunction.Indiff F P x y
+
+theorem strictPref_def
+    (F : SocialWelfareFunction V A) (P : Profile V A) (x y : A) :
+    SocialWelfareFunction.StrictPref F P x y ↔
+      ((F P).weakPref x y ∧ ¬ (F P).weakPref y x) := by
+  rfl
+
+theorem indiff_def
+    (F : SocialWelfareFunction V A) (P : Profile V A) (x y : A) :
+    SocialWelfareFunction.Indiff F P x y ↔
+      ((F P).weakPref x y ∧ (F P).weakPref y x) := by
+  rfl
+
+end SocialWelfareFunction
+
+/--
+A social welfare function is complete if, at every profile, the induced social
+preference is complete.
+-/
+def CompleteSWF
+    {V : Type u} {A : Type v}
+    (F : SocialWelfareFunction V A) : Prop :=
+  ∀ P : Profile V A, (F P).Complete
+
+/--
+A social welfare function is transitive if, at every profile, the induced social
+preference is transitive.
+-/
+def TransitiveSWF
+    {V : Type u} {A : Type v}
+    (F : SocialWelfareFunction V A) : Prop :=
+  ∀ P : Profile V A, (F P).Transitive
+
+/--
+A social welfare function is rational if, at every profile, the induced social
+preference is complete and transitive.
+-/
+def RationalSWF
+    {V : Type u} {A : Type v}
+    (F : SocialWelfareFunction V A) : Prop :=
+  CompleteSWF F ∧ TransitiveSWF F
+
+/-- A profile is rational if every voter's preference is complete and transitive. -/
+def RationalProfile
+    {V : Type u} {A : Type v}
+    (P : Profile V A) : Prop :=
+  ∀ i : V, (P i).Complete ∧ (P i).Transitive
+
+namespace CompleteSWF
+
+variable {V : Type u} {A : Type v} {F : SocialWelfareFunction V A}
+
+theorem apply
+    (h : CompleteSWF F)
+    (P : Profile V A) :
+    (F P).Complete :=
+  h P
+
+end CompleteSWF
+
+namespace TransitiveSWF
+
+variable {V : Type u} {A : Type v} {F : SocialWelfareFunction V A}
+
+theorem apply
+    (h : TransitiveSWF F)
+    (P : Profile V A) :
+    (F P).Transitive :=
+  h P
+
+end TransitiveSWF
+
+namespace RationalSWF
+
+variable {V : Type u} {A : Type v} {F : SocialWelfareFunction V A}
+
+theorem complete
+    (h : RationalSWF F)
+    (P : Profile V A) :
+    (F P).Complete :=
+  h.1 P
+
+theorem transitive
+    (h : RationalSWF F)
+    (P : Profile V A) :
+    (F P).Transitive :=
+  h.2 P
+
+end RationalSWF
+
+namespace RationalProfile
+
+variable {V : Type u} {A : Type v} {P : Profile V A}
+
+theorem complete
+    (h : RationalProfile P)
+    (i : V) :
+    (P i).Complete :=
+  (h i).1
+
+theorem transitive
+    (h : RationalProfile P)
+    (i : V) :
+    (P i).Transitive :=
+  (h i).2
+
+end RationalProfile
+
+/--
+Profiles `P` and `Q` agree on the pairwise comparison of `x` and `y` for every voter.
+-/
+def PairwiseAgreesOn
+    {V : Type u} {A : Type v}
+    (P Q : Profile V A) (x y : A) : Prop :=
+  ∀ i : V,
+    ((Profile.WeakPref P i x y ↔ Profile.WeakPref Q i x y) ∧
+     (Profile.WeakPref P i y x ↔ Profile.WeakPref Q i y x))
+
+/--
+Independence of irrelevant alternatives: the social comparison of `x` and `y`
+depends only on individuals' comparisons of `x` and `y`.
+-/
+def IIA
+    {V : Type u} {A : Type v}
+    (F : SocialWelfareFunction V A) : Prop :=
+  ∀ (P Q : Profile V A) (x y : A),
+    PairwiseAgreesOn P Q x y →
+    ((SocialWelfareFunction.WeakPref F P x y ↔
+      SocialWelfareFunction.WeakPref F Q x y) ∧
+     (SocialWelfareFunction.WeakPref F P y x ↔
+      SocialWelfareFunction.WeakPref F Q y x))
+
+namespace PairwiseAgreesOn
+
+variable {V : Type u} {A : Type v}
+variable {P Q : Profile V A} {x y : A}
+
+theorem apply
+    (h : PairwiseAgreesOn P Q x y) (i : V) :
+    (Profile.WeakPref P i x y ↔ Profile.WeakPref Q i x y) ∧
+    (Profile.WeakPref P i y x ↔ Profile.WeakPref Q i y x) :=
+  h i
+
+end PairwiseAgreesOn
+
+namespace IIA
+
+variable {V : Type u} {A : Type v} {F : SocialWelfareFunction V A}
+
+theorem apply
+    (h : IIA F)
+    (P Q : Profile V A) (x y : A)
+    (hxy : PairwiseAgreesOn P Q x y) :
+    ((SocialWelfareFunction.WeakPref F P x y ↔
+      SocialWelfareFunction.WeakPref F Q x y) ∧
+     (SocialWelfareFunction.WeakPref F P y x ↔
+      SocialWelfareFunction.WeakPref F Q y x)) :=
+  h P Q x y hxy
+
+end IIA
+
+/--
+Voter `i` is a dictator for the social welfare function `F` if, for every
+profile, whenever `i` strictly prefers `x` to `y`, society also strictly
+prefers `x` to `y`.
+-/
+def IsDictatorSWF
+    {V : Type u} {A : Type v}
+    (F : SocialWelfareFunction V A) (i : V) : Prop :=
+  ∀ (P : Profile V A) (x y : A),
+    Profile.StrictPref P i x y →
+    SocialWelfareFunction.StrictPref F P x y
+
+/-- A social welfare function is dictatorial if some voter is a dictator. -/
+def DictatorialSWF
+    {V : Type u} {A : Type v}
+    (F : SocialWelfareFunction V A) : Prop :=
+  ∃ i : V, IsDictatorSWF F i
+
+namespace IsDictatorSWF
+
+variable {V : Type u} {A : Type v}
+variable {F : SocialWelfareFunction V A} {i : V}
+
+theorem apply
+    (h : IsDictatorSWF F i)
+    (P : Profile V A) (x y : A)
+    (hxy : Profile.StrictPref P i x y) :
+    SocialWelfareFunction.StrictPref F P x y :=
+  h P x y hxy
+
+end IsDictatorSWF
+
+namespace DictatorialSWF
+
+variable {V : Type u} {A : Type v} {F : SocialWelfareFunction V A}
+
+theorem witness
+    (h : DictatorialSWF F) :
+    ∃ i : V, IsDictatorSWF F i :=
+  h
+
+end DictatorialSWF
+
+end SocialChoiceVocabulary
 
 end QuasiOrders
 end SocialChoiceTheory

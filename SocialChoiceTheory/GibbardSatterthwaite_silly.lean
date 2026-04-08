@@ -12,10 +12,6 @@ namespace SocialChoiceTheory
 
 This file derives a strict-ballot version of Gibbard-Satterthwaite following
 Nipkow's pair-top construction.
-
-For interoperability with `eco-lean`, it also exposes forward-facing operations
-`prefers`, `weakPref`, and `toPreference` on top of the legacy internal ballot
-orientation.
 -/
 
 section StrictBallots
@@ -28,9 +24,6 @@ Strict linear ballots for the Gibbard-Satterthwaite side.
 
 `lt x y` means "`y` is strictly preferred to `x`".
 This matches Nipkow's orientation.
-
-For interoperability with `eco-lean`, prefer the derived forward relation
-`LinBallot.prefers x y`.
 -/
 structure LinBallot (σ : Type*) where
   lt : σ → σ → Prop
@@ -40,47 +33,7 @@ structure LinBallot (σ : Type*) where
 
 namespace LinBallot
 
-/-- Forward strict preference associated to a Nipkow-style ballot. -/
-def prefers (L : LinBallot σ) (x y : σ) : Prop :=
-  L.lt y x
-
-/-- Forward weak preference associated to a strict ballot. -/
-def weakPref (L : LinBallot σ) (x y : σ) : Prop :=
-  x = y ∨ L.prefers x y
-
-/--
-EcoLean-style preference associated to a strict ballot.
-
-This is the forward-facing translation that should be used for interoperability:
-`x ≽ y` means that `x` is weakly preferred to `y`.
--/
-def toPreference (L : LinBallot σ) : Preference σ where
-  toPrefOrder :=
-    { rel := L.weakPref
-      refl := by
-        intro x
-        exact Or.inl rfl
-      total := by
-        intro x y
-        by_cases h : x = y
-        · exact Or.inl (Or.inl h)
-        · rcases L.total h with hxy | hyx
-          · exact Or.inr (Or.inr hxy)
-          · exact Or.inl (Or.inr hyx)
-      trans := by
-        intro x y z hxy hyz
-        rcases hxy with rfl | hxy
-        · exact hyz
-        · rcases hyz with rfl | hyz
-          · exact Or.inr hxy
-          · exact Or.inr (L.trans hyz hxy) }
-
-/--
-Legacy weak-order translation matching the internal `lt` orientation.
-
-Prefer `toPreference` for new code that wants the same forward weak-preference
-semantics as `eco-lean`.
--/
+/-- Weak order associated to a strict linear ballot. -/
 def toPrefOrder (L : LinBallot σ) : PrefOrder σ where
   rel x y := x = y ∨ L.lt x y
   refl x := Or.inl rfl
@@ -117,29 +70,6 @@ lemma toPrefOrder_strict_iff (L : LinBallot σ) {x y : σ} :
         exact L.irrefl _ h
       · exact L.irrefl _ (L.trans h hlt)
 
-lemma toPreference_strictPref_iff (L : LinBallot σ) {x y : σ} :
-    Preference.StrictPref (L.toPreference) x y ↔ L.prefers x y := by
-  constructor
-  · intro h
-    rcases h with ⟨hxy, hyx⟩
-    rcases hxy with hEq | hlt
-    · subst hEq
-      exfalso
-      exact hyx (Or.inl rfl)
-    · exact hlt
-  · intro h
-    constructor
-    · exact Or.inr h
-    · intro hyx
-      rcases hyx with hEq | hlt
-      · subst hEq
-        exact L.irrefl _ h
-      · exact L.irrefl _ (L.trans hlt h)
-
-lemma toPreference_eq_or_prefers (L : LinBallot σ) (x y : σ) :
-    Preference.weakPref (L.toPreference) x y ↔ x = y ∨ L.prefers x y := by
-  rfl
-
 lemma toPrefOrder_eq_or_lt (L : LinBallot σ) (x y : σ) :
     L.toPrefOrder x y ↔ x = y ∨ L.lt x y := by
   rfl
@@ -149,14 +79,8 @@ end LinBallot
 /-- Profiles of strict ballots for the GS side. -/
 abbrev SProfile (ι σ : Type*) := ι → LinBallot σ
 
-/-- EcoLean-style name for profiles of strict ballots. -/
-abbrev StrictProfile (ι σ : Type*) := SProfile ι σ
-
 /-- Resolute social choice functions on strict-ballot profiles. -/
 abbrev SCF (ι σ : Type*) := SProfile ι σ → σ
-
-/-- EcoLean-style name for strict-ballot social choice functions. -/
-abbrev StrictSocialChoiceFunction (ι σ : Type*) := SCF ι σ
 
 def ChoosesFrom (g : SCF ι σ) (X : Finset σ) : Prop :=
   ∀ P, g P ∈ X
@@ -166,9 +90,6 @@ def OntoOn (g : SCF ι σ) (X : Finset σ) : Prop :=
 
 def sProfileUpdate (P : SProfile ι σ) (i : ι) (L : LinBallot σ) : SProfile ι σ :=
   fun j => if j = i then L else P j
-
-/-- EcoLean-style name for strict-profile updates. -/
-abbrev strictProfileUpdate := @sProfileUpdate
 
 def Manipulable (g : SCF ι σ) (X : Finset σ) : Prop :=
   ∃ P : SProfile ι σ, ∃ i : ι, ∃ L : LinBallot σ,
@@ -190,7 +111,7 @@ def IsChoiceDictatorship (g : SCF ι σ) (X : Finset σ) : Prop :=
 
 /-- Coerce a strict-ballot profile to the weak-order profile used by `SWF`. -/
 def weakProfileOf (P : SProfile ι σ) : Profile ι σ :=
-  fun i => (P i).toPreference
+  fun i => (P i).toPrefOrder
 
 end StrictBallots
 
@@ -499,11 +420,6 @@ lemma topProfile_pair_eq_swap
     simp [or_comm]
   simp [topProfile, hswap]
 
-abbrev StrictSocialWelfareFunction (ι σ : Type*) := SProfile ι σ → Preference σ
-
-/-- Compatibility alias for the older strict-ballot development. -/
-abbrev SSWF (ι σ : Type*) := StrictSocialWelfareFunction ι σ
-
 end PairTopHelpers
 
 section TopUnanimityAndStrictRoute
@@ -604,7 +520,68 @@ lemma swf_binary_choice_mem_pair
     rcases hx with rfl | rfl
     · exact ha
     · exact hb
+ 
 
+lemma binary_top_choice_eq_left
+    (g : SCF ι σ) (X : Finset σ)
+    (hchoose : ChoosesFrom g X)
+    (honto : OntoOn g X)
+    (hnm : NonManipulable g X)
+    (P : SProfile ι σ) (a b : σ)
+    (ha : a ∈ X) (hb : b ∈ X)
+    (hall : ∀ i : ι, (P i).lt b a) :
+    g (topProfile ({a, b} : Finset σ) P) = a := by
+  classical
+  let Pa : SProfile ι σ := topProfile ({a} : Finset σ) P
+  let Pab : SProfile ι σ := topProfile ({a, b} : Finset σ) P
+  have hPa_mem : g Pa ∈ ({a} : Finset σ) := by
+    apply top_unanimity g X ({a} : Finset σ) hchoose honto hnm
+    · simp
+    · intro x hx
+      simp at hx
+      subst x
+      exact ha
+
+  have hPa_eq : g Pa = a := by
+    simpa [Pa] using hPa_mem
+  have hmono :
+      ∀ i : ι, ∀ x : σ,
+        (Pa i).lt x (g Pa) →
+        (Pab i).lt x (g Pa) := by
+    intro i x hx
+    rw [hPa_eq] at hx ⊢
+    by_cases hxa : x = a
+    · subst x
+      exact False.elim ((Pa i).irrefl _ hx)
+    · by_cases hxb : x = b
+      · subst x
+        have hiff :
+            (Pab i).lt b a ↔ (P i).lt b a := by
+          simpa [Pa, Pab, topProfile] using
+            (topifyLin_mem_mem
+              (S := ({a, b} : Finset σ)) (L := P i)
+              (x := b) (y := a)
+              (by simp) (by simp))
+        exact hiff.2 (hall i)
+      · have hx_not_ab : x ∉ ({a, b} : Finset σ) := by
+          simp [hxa, hxb]
+        have : (Pab i).lt x a := by
+          simpa [Pab, topProfile] using
+            (topifyLin_not_mem_mem
+              (S := ({a, b} : Finset σ)) (L := P i)
+              (x := x) (y := a)
+              hx_not_ab (by simp))
+        exact this
+  have hEq : g Pab = g Pa := by
+    exact monotonicity g X hchoose hnm hmono
+  rw [hPa_eq] at hEq
+  simpa [Pab] using hEq
+
+/-- Nipkow-style induced strict social relation. -/
+def swfStrict
+    (g : SCF ι σ)
+    (P : SProfile ι σ) : σ → σ → Prop :=
+  fun a b => a ≠ b ∧ g (topProfile ({a, b} : Finset σ) P) = b
 
 def SWeakParetoStrict (f : SProfile ι σ → σ → σ → Prop) (X : Finset σ) : Prop :=
   ∀ a b, a ∈ X → b ∈ X → ∀ P : SProfile ι σ,
@@ -620,14 +597,6 @@ def SIsDictatorshipStrict (f : SProfile ι σ → σ → σ → Prop) (X : Finse
   ∃ i : ι, ∀ P : SProfile ι σ, ∀ a b : σ,
     a ∈ X → b ∈ X →
     (f P a b ↔ (P i).lt a b)
-
-/-- Nipkow-style induced strict social relation:
-`swfStrict g P a b` means that after moving `{a,b}` to the top,
-the choice function picks `b`. So `b` is socially above `a`. -/
-def swfStrict
-    (g : SCF ι σ)
-    (P : SProfile ι σ) : σ → σ → Prop :=
-  fun a b => a ≠ b ∧ g (topProfile ({a, b} : Finset σ) P) = b
 
 lemma topProfile_pair_strict_iff'
     (P : SProfile ι σ) (a b : σ) (i : ι)
@@ -669,60 +638,6 @@ lemma topProfile_pair_sameOrder'
   · intro h
     exact ((topProfile_pair_strict_iff' P' a b i hab).1 h |> h1.mpr
       |> (topProfile_pair_strict_iff' P a b i hab).2)
-
-lemma binary_top_choice_eq_left
-    (g : SCF ι σ) (X : Finset σ)
-    (hchoose : ChoosesFrom g X)
-    (honto : OntoOn g X)
-    (hnm : NonManipulable g X)
-    (P : SProfile ι σ) (a b : σ)
-    (ha : a ∈ X) (hb : b ∈ X)
-    (hall : ∀ i : ι, (P i).lt b a) :
-    g (topProfile ({a, b} : Finset σ) P) = a := by
-  classical
-  let Pa : SProfile ι σ := topProfile ({a} : Finset σ) P
-  let Pab : SProfile ι σ := topProfile ({a, b} : Finset σ) P
-  have hPa_mem : g Pa ∈ ({a} : Finset σ) := by
-    apply top_unanimity g X ({a} : Finset σ) hchoose honto hnm
-    · simp
-    · intro x hx
-      simp at hx
-      subst x
-      exact ha
-  have hPa_eq : g Pa = a := by
-    simpa [Pa] using hPa_mem
-  have hmono :
-      ∀ i : ι, ∀ x : σ,
-        (Pa i).lt x (g Pa) →
-        (Pab i).lt x (g Pa) := by
-    intro i x hx
-    rw [hPa_eq] at hx ⊢
-    by_cases hxa : x = a
-    · subst x
-      exact False.elim ((Pa i).irrefl _ hx)
-    · by_cases hxb : x = b
-      · subst x
-        have hiff :
-            (Pab i).lt b a ↔ (P i).lt b a := by
-          simpa [Pa, Pab, topProfile] using
-            (topifyLin_mem_mem
-              (S := ({a, b} : Finset σ)) (L := P i)
-              (x := b) (y := a)
-              (by simp) (by simp))
-        exact hiff.2 (hall i)
-      · have hx_not_ab : x ∉ ({a, b} : Finset σ) := by
-          simp [hxa, hxb]
-        have : (Pab i).lt x a := by
-          simpa [Pab, topProfile] using
-            (topifyLin_not_mem_mem
-              (S := ({a, b} : Finset σ)) (L := P i)
-              (x := x) (y := a)
-              hx_not_ab (by simp))
-        exact this
-  have hEq : g Pab = g Pa := by
-    exact monotonicity g X hchoose hnm hmono
-  rw [hPa_eq] at hEq
-  simpa [Pab] using hEq
 
 lemma swfStrict_weakPareto
     (g : SCF ι σ) (X : Finset σ)
@@ -842,8 +757,6 @@ lemma swfStrict_iia
       rw [hchoiceP'] at hEq
       simpa [S] using hEq
 
-
-
 lemma swfStrict_dictator_implies_choice_dictator
     (g : SCF ι σ) (X : Finset σ)
     (hchoose : ChoosesFrom g X)
@@ -856,34 +769,25 @@ lemma swfStrict_dictator_implies_choice_dictator
   refine ⟨i, ?_⟩
   intro P y hyX hyNe
   set q : σ := y with hq
-
   let w : σ := g P
   let S : Finset σ := insert w ({q} : Finset σ)
   let T : Finset σ := insert q ({w} : Finset σ)
-
   have hqX : q ∈ X := by
     simpa [hq] using hyX
-
   have hqNe : q ≠ g P := by
     simpa [hq] using hyNe
-
   have hwX : w ∈ X := hchoose P
-
   have hwq_ne : w ≠ q := by
     intro h
     apply hqNe
     simpa [w] using h.symm
-
   have hS_w : w ∈ S := by
     simp [S]
-
   have hS_q : q ∈ S := by
     simp [S]
-
   have hT_eq_S : T = S := by
     ext u
     simp [S, T, or_comm]
-
   have htopchoice : g (topProfile S P) = w := by
     have hmono :
         ∀ j : ι, ∀ t : σ,
@@ -914,17 +818,13 @@ lemma swfStrict_dictator_implies_choice_dictator
           exact this
     exact monotonicity g X hchoose hnm
       (P := P) (P' := topProfile S P) hmono
-
   have hqw_choice : g (topProfile T P) = w := by
     simpa [hT_eq_S] using htopchoice
-
   have hqw : swfStrict g P q w := by
     refine ⟨hwq_ne.symm, ?_⟩
     simpa [swfStrict, T] using hqw_choice
-
   have hdict_qw : (swfStrict g P q w ↔ (P i).lt q w) := by
     exact hdict_i P q w hqX hwX
-
   exact hdict_qw.mp hqw
 
 theorem gibbard_satterthwaite

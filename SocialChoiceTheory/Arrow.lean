@@ -36,8 +36,8 @@ The proof strategy is the classical "pivot" route:
      dictator on all pairs.
 5. Conclude Arrow's theorem.
 
-The development uses `PrefOrder σ` from `Basic.lean` for complete and transitive
-weak orders, and `StrictPref` for the associated strict part.
+The development uses `Preference σ` from `Basic.lean` for complete and transitive
+weak preferences, and `StrictPref` for the associated strict part.
 -/
 
 variable {σ ι : Type*}
@@ -337,35 +337,38 @@ lemma makeabove_below {a b c : σ} {r : PrefOrder σ} (hc : c ≠ b) (hr : ¬ r 
 
 /-! ## Profiles, social welfare functions, and Arrow-style properties
 
-A profile is a function assigning each voter a preference order.
-A social welfare function sends profiles to a social preference order.
+A profile is a function assigning each voter a preference.
+A social welfare function sends profiles to a social preference.
 
 The axioms are encoded as follows.
 
-* `WeakPareto`: if everyone strictly prefers `x` to `y`, society does too.
-* `IndOfIrrAlts`: if two profiles agree on the pairwise ordering of `x` and `y`
+* `StrictParetoOn`: if everyone strictly prefers `x` to `y`, society does too.
+* `IIAOn`: if two profiles agree on the pairwise ordering of `x` and `y`
   for every individual, then society also agrees on that pairwise ordering.
-* `IsDictatorship`: some voter's strict ranking is always inherited socially.
+* `DictatorialSWFOn`: some voter's strict ranking is always inherited socially.
 * `IsPivotal f X i b`: voter `i` can change the social status of `b` from
   strictly worst to strictly best while the other voters keep `b` extremal.
 * `IsDictatorExcept f X i b`: voter `i` dictates every pair not involving `b`.
 -/
 
-abbrev Profile (ι σ : Type*) := ι → PrefOrder σ
-abbrev SWF (ι σ : Type*) := Profile ι σ → PrefOrder σ
-
-def WeakPareto (f : SWF ι σ) (X : Finset σ) : Prop :=
+def StrictParetoOn (f : SWF ι σ) (X : Finset σ) : Prop :=
   ∀ x y, x ∈ X → y ∈ X → ∀ R : Profile ι σ,
     (∀ i : ι, StrictPref (R i) x y) → StrictPref (f R) x y
 
-def IndOfIrrAlts (f : SWF ι σ) (X : Finset σ) : Prop :=
+abbrev WeakPareto (f : SWF ι σ) (X : Finset σ) : Prop := StrictParetoOn f X
+
+def IIAOn (f : SWF ι σ) (X : Finset σ) : Prop :=
   ∀ (R R' : Profile ι σ) (x y : σ), x ∈ X → y ∈ X →
     (∀ i : ι, SameOrder (R i) (R' i) x y x y) →
     SameOrder (f R) (f R') x y x y
 
-def IsDictatorship (f : SWF ι σ) (X : Finset σ) : Prop :=
+abbrev IndOfIrrAlts (f : SWF ι σ) (X : Finset σ) : Prop := IIAOn f X
+
+def DictatorialSWFOn (f : SWF ι σ) (X : Finset σ) : Prop :=
   ∃ i : ι, ∀ x y, x ∈ X → y ∈ X → ∀ R : Profile ι σ,
     StrictPref (R i) x y → StrictPref (f R) x y
+
+abbrev IsDictatorship (f : SWF ι σ) (X : Finset σ) : Prop := DictatorialSWFOn f X
 
 def IsPivotal (f : SWF ι σ) (X : Finset σ) (i : ι) (b : σ) : Prop :=
   ∃ (R R' : Profile ι σ),
