@@ -43,7 +43,7 @@ weak preferences, and `StrictPref` for the associated strict part.
 variable {σ ι : Type*}
 variable [DecidableEq σ]
 
-variable {x y x' y' a b c : σ} {r r' : σ → σ → Prop} {X : Finset σ}
+variable {x y x' y' a b c : σ} {r r' : Preference σ} {X : Finset σ}
 
 /-! ## Extremal alternatives
 
@@ -57,13 +57,13 @@ The later proof uses extremality because the pivot construction toggles an
 alternative `b` from one extreme to the other.
 -/
 
-def IsStrictlyWorst (b : σ) (r : σ → σ → Prop) (X : Finset σ) : Prop :=
+def IsStrictlyWorst (b : σ) (r : Preference σ) (X : Finset σ) : Prop :=
   ∀ a ∈ X, a ≠ b → StrictPref r a b
 
-def IsStrictlyBest (b : σ) (r : σ → σ → Prop) (X : Finset σ) : Prop :=
+def IsStrictlyBest (b : σ) (r : Preference σ) (X : Finset σ) : Prop :=
   ∀ a ∈ X, a ≠ b → StrictPref r b a
 
-def IsExtremal (b : σ) (r : σ → σ → Prop) (X : Finset σ) : Prop :=
+def IsExtremal (b : σ) (r : Preference σ) (X : Finset σ) : Prop :=
   IsStrictlyWorst b r X ∨ IsStrictlyBest b r X
 
 /-!
@@ -105,12 +105,12 @@ comparisons. If `a` is not strictly above `b`, totality forces `b ≽ a`; and if
 So non-extremality yields a weak "sandwich" `c ≽ b ≽ a`.
 -/
 lemma not_extremal'
-    (hr : Total r) (h : ¬ IsExtremal b r X) :
+    (r : Preference σ) (h : ¬ IsExtremal b r X) :
     ∃ a c, a ∈ X ∧ c ∈ X ∧ a ≠ b ∧ c ≠ b ∧ r b a ∧ r c b := by
   rcases (not_extremal_iff.mp h) with ⟨⟨a, ha, hab, hna⟩, ⟨c, hc, hcb, hnc⟩⟩
   refine ⟨a, c, ha, hc, hab, hcb, ?_, ?_⟩
-  · exact rel_of_not_strictPref_total hr hna
-  · exact rel_of_not_strictPref_total hr hnc
+  · exact rel_of_not_strictPref_total r.total hna
+  · exact rel_of_not_strictPref_total r.total hnc
 
 /-!
 The next block records that "strictly best" and "strictly worst" are mutually
@@ -176,13 +176,14 @@ The corresponding `*_noteq` lemmas say that away from the distinguished
 alternative, the old and new orders agree pairwise.
 -/
 
-noncomputable def maketop (r : PrefOrder σ) (b : σ) : PrefOrder σ := by
+noncomputable def maketop (r : Preference σ) (b : σ) : Preference σ := by
   classical
   refine
-    { rel := fun x y => if x = b then True else if y = b then False else r x y
-      refl := ?_
-      total := ?_
-      trans := ?_ }
+    { toPrefOrder := {
+        rel := fun x y => if x = b then True else if y = b then False else r x y
+        refl := ?_
+        total := ?_
+        trans := ?_ } }
   · intro x
     by_cases hx : x = b
     · simp [hx]
@@ -198,13 +199,14 @@ noncomputable def maketop (r : PrefOrder σ) (b : σ) : PrefOrder σ := by
     try trivial
     exact r.trans hxy hyz
 
-noncomputable def makebot (r : PrefOrder σ) (b : σ) : PrefOrder σ := by
+noncomputable def makebot (r : Preference σ) (b : σ) : Preference σ := by
   classical
   refine
-    { rel := fun x y => if y = b then True else if x = b then False else r x y
-      refl := ?_
-      total := ?_
-      trans := ?_ }
+    { toPrefOrder := {
+        rel := fun x y => if y = b then True else if x = b then False else r x y
+        refl := ?_
+        total := ?_
+        trans := ?_ } }
   · intro x
     by_cases hx : x = b
     · simp [hx]
@@ -220,20 +222,21 @@ noncomputable def makebot (r : PrefOrder σ) (b : σ) : PrefOrder σ := by
     try trivial
     exact r.trans hxy hyz
 
-noncomputable def makeabove (r : PrefOrder σ) (a b : σ) : PrefOrder σ := by
+noncomputable def makeabove (r : Preference σ) (a b : σ) : Preference σ := by
   classical
   let s : σ → σ → Prop := fun x y =>
     if x = b then
       if y = b then True else if r a y then True else False
     else if y = b then
       if r a x then False else True
-    else
+  else
       r x y
   refine
-    { rel := s
-      refl := ?_
-      total := ?_
-      trans := ?_ }
+    { toPrefOrder := {
+        rel := s
+        refl := ?_
+        total := ?_
+        trans := ?_ } }
   · intro x
     dsimp [s]
     by_cases hx : x = b
@@ -281,57 +284,57 @@ noncomputable def makeabove (r : PrefOrder σ) (a b : σ) : PrefOrder σ := by
           exact r.trans hxy hyz
 
 lemma maketop_noteq
-    (r : PrefOrder σ) {a b c : σ} (ha : a ≠ b) (hc : c ≠ b) :
+    (r : Preference σ) {a b c : σ} (ha : a ≠ b) (hc : c ≠ b) :
     ((maketop r b) a c ↔ r a c) ∧ ((maketop r b) c a ↔ r c a) := by
   simp [maketop, ha, hc]
 
 lemma maketop_noteq'
-    (r : PrefOrder σ) {a b c : σ} (ha : a ≠ b) (hc : c ≠ b) :
+    (r : Preference σ) {a b c : σ} (ha : a ≠ b) (hc : c ≠ b) :
     (StrictPref (maketop r b) a c ↔ StrictPref r a c) ∧
     (StrictPref (maketop r b) c a ↔ StrictPref r c a) := by
   exact strictPref_iff_of_iff (maketop_noteq r ha hc).1 (maketop_noteq r ha hc).2
 
 lemma makebot_noteq
-    (r : PrefOrder σ) {a b c : σ} (ha : a ≠ b) (hc : c ≠ b) :
+    (r : Preference σ) {a b c : σ} (ha : a ≠ b) (hc : c ≠ b) :
     ((makebot r b) a c ↔ r a c) ∧ ((makebot r b) c a ↔ r c a) := by
   simp [makebot, ha, hc]
 
 lemma makebot_noteq'
-    (r : PrefOrder σ) {a b c : σ} (ha : a ≠ b) (hc : c ≠ b) :
+    (r : Preference σ) {a b c : σ} (ha : a ≠ b) (hc : c ≠ b) :
     (StrictPref (makebot r b) a c ↔ StrictPref r a c) ∧
     (StrictPref (makebot r b) c a ↔ StrictPref r c a) := by
   exact strictPref_iff_of_iff (makebot_noteq r ha hc).1 (makebot_noteq r ha hc).2
 
 lemma makeabove_noteq
-    (r : PrefOrder σ) (a : σ) {b c d : σ} (hc : c ≠ b) (hd : d ≠ b) :
+    (r : Preference σ) (a : σ) {b c d : σ} (hc : c ≠ b) (hd : d ≠ b) :
     ((makeabove r a b) c d ↔ r c d) ∧ ((makeabove r a b) d c ↔ r d c) := by
   simp [makeabove, hc, hd]
 
 lemma makeabove_noteq'
-    (r : PrefOrder σ) (a : σ) {b c d : σ} (hc : c ≠ b) (hd : d ≠ b) :
+    (r : Preference σ) (a : σ) {b c d : σ} (hc : c ≠ b) (hd : d ≠ b) :
     (StrictPref (makeabove r a b) c d ↔ StrictPref r c d) ∧
     (StrictPref (makeabove r a b) d c ↔ StrictPref r d c) := by
   exact strictPref_iff_of_iff (makeabove_noteq r a hc hd).1 (makeabove_noteq r a hc hd).2
 
-lemma is_strictlyBest_maketop (b : σ) (r : PrefOrder σ) (X : Finset σ) :
+lemma is_strictlyBest_maketop (b : σ) (r : Preference σ) (X : Finset σ) :
     IsStrictlyBest b (maketop r b) X := by
   intro a ha hab
   simp [IsStrictlyBest, StrictPref, maketop, hab]
 
-lemma is_strictlyWorst_makebot (b : σ) (r : PrefOrder σ) (X : Finset σ) :
+lemma is_strictlyWorst_makebot (b : σ) (r : Preference σ) (X : Finset σ) :
     IsStrictlyWorst b (makebot r b) X := by
   intro a ha hab
   simp [IsStrictlyWorst, StrictPref, makebot, hab]
 
-lemma makeabove_above {a b : σ} (r : PrefOrder σ) (ha : a ≠ b) :
+lemma makeabove_above {a b : σ} (r : Preference σ) (ha : a ≠ b) :
     StrictPref (makeabove r a b) b a := by
   simpa [StrictPref, makeabove, ha] using r.refl a
 
-lemma makeabove_above' {a b c : σ} {r : PrefOrder σ} (hc : c ≠ b) (hr : r a c) :
+lemma makeabove_above' {a b c : σ} {r : Preference σ} (hc : c ≠ b) (hr : r a c) :
     StrictPref (makeabove r a b) b c := by
   simpa [StrictPref, makeabove, hc, hr]
 
-lemma makeabove_below {a b c : σ} {r : PrefOrder σ} (hc : c ≠ b) (hr : ¬ r a c) :
+lemma makeabove_below {a b c : σ} {r : Preference σ} (hc : c ≠ b) (hr : ¬ r a c) :
     StrictPref (makeabove r a b) c b := by
   simpa [StrictPref, makeabove, hc, hr]
 
@@ -401,7 +404,7 @@ theorem is_strictlyWorst_of_forall_is_strictlyWorst
 lemma exists_of_not_extremal
     (hX : 3 ≤ X.card) (hb : b ∈ X) (h : ¬ IsExtremal b (f R) X) :
     ∃ a c, a ∈ X ∧ c ∈ X ∧ a ≠ b ∧ c ≠ b ∧ a ≠ c ∧ (f R) a b ∧ (f R) b c := by
-  rcases not_extremal' (f R).total h with
+  rcases not_extremal' (f R) h with
     ⟨u, v, hu, hv, hub, hvb, hbu, hvb'⟩
   rcases ne_or_eq u v with huv | huv
   · exact ⟨v, u, hv, hu, hvb, hub, huv.symm, hvb', hbu⟩
@@ -481,13 +484,14 @@ lemma first_step
 weakly tied above it. It supplies the base profile for the pivot-existence
 argument.
 -/
-noncomputable def r₂ (b : σ) : PrefOrder σ := by
+noncomputable def r₂ (b : σ) : Preference σ := by
   classical
   refine
-    { rel := fun x y => if y = b then True else if x = b then False else True
-      refl := ?_
-      total := ?_
-      trans := ?_ }
+    { toPrefOrder := {
+        rel := fun x y => if y = b then True else if x = b then False else True
+        refl := ?_
+        total := ?_
+        trans := ?_ } }
   · intro x
     by_cases hx : x = b <;> simp [hx]
   · intro x y

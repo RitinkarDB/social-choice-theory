@@ -702,6 +702,60 @@ def DictatorialOn
     (f : StrictProfile ι σ → σ → σ → Prop) (X : Finset σ) : Prop :=
   ∃ i : ι, IsDictatorOn f X i
 
+/-- Compatibility alias emphasising that Pareto is phrased via strict preference. -/
+abbrev StrictParetoOn
+    (f : StrictProfile ι σ → σ → σ → Prop) (X : Finset σ) : Prop :=
+  ParetoOn f X
+
+namespace ParetoOn
+
+theorem apply
+    {f : StrictProfile ι σ → σ → σ → Prop} {X : Finset σ}
+    (h : ParetoOn f X)
+    (P : StrictProfile ι σ) {x y : σ}
+    (hx : x ∈ X) (hy : y ∈ X)
+    (hxy : ∀ i : ι, (P i).prefers x y) :
+    f P x y :=
+  h x y hx hy P hxy
+
+end ParetoOn
+
+namespace IIAOn
+
+theorem apply
+    {f : StrictProfile ι σ → σ → σ → Prop} {X : Finset σ}
+    (h : IIAOn f X)
+    (P Q : StrictProfile ι σ) (x y : σ)
+    (hx : x ∈ X) (hy : y ∈ X)
+    (hxy : StrictProfile.PairwiseAgreesOn P Q x y) :
+    ((f P x y ↔ f Q x y) ∧
+     (f P y x ↔ f Q y x)) :=
+  h P Q x y hx hy hxy
+
+end IIAOn
+
+namespace IsDictatorOn
+
+theorem apply
+    {f : StrictProfile ι σ → σ → σ → Prop} {X : Finset σ} {i : ι}
+    (h : IsDictatorOn f X i)
+    (P : StrictProfile ι σ) {x y : σ}
+    (hx : x ∈ X) (hy : y ∈ X) :
+    (f P x y ↔ (P i).prefers x y) :=
+  h P x y hx hy
+
+end IsDictatorOn
+
+namespace DictatorialOn
+
+theorem witness
+    {f : StrictProfile ι σ → σ → σ → Prop} {X : Finset σ}
+    (h : DictatorialOn f X) :
+    ∃ i : ι, IsDictatorOn f X i :=
+  h
+
+end DictatorialOn
+
 end StrictSocialRelation
 
 lemma topProfile_pair_strict_iff'
