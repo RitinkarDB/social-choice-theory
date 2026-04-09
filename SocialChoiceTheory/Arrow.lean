@@ -362,6 +362,72 @@ abbrev DictatorialSWFOn (f : SWF ι σ) (X : Finset σ) : Prop := DictatorialOn 
 
 abbrev IsDictatorship (f : SWF ι σ) (X : Finset σ) : Prop := DictatorialOn f X
 
+namespace WeakPareto
+
+theorem apply
+    {f : SWF ι σ} {X : Finset σ}
+    (h : WeakPareto f X)
+    (P : Profile ι σ) {x y : σ}
+    (hx : x ∈ X) (hy : y ∈ X)
+    (hxy : ∀ i : ι, Profile.StrictPref P i x y) :
+    SocialWelfareFunction.StrictPref f P x y :=
+  ParetoOn.apply h P hx hy hxy
+
+end WeakPareto
+
+namespace IndOfIrrAlts
+
+theorem apply
+    {f : SWF ι σ} {X : Finset σ}
+    (h : IndOfIrrAlts f X)
+    (P Q : Profile ι σ) (x y : σ)
+    (hx : x ∈ X) (hy : y ∈ X)
+    (hxy : PairwiseAgreesOn P Q x y) :
+    SameOrder (f P) (f Q) x y x y :=
+  IIAOn.apply h P Q x y hx hy hxy
+
+theorem weak
+    {f : SWF ι σ} {X : Finset σ}
+    (h : IndOfIrrAlts f X)
+    (P Q : Profile ι σ) (x y : σ)
+    (hx : x ∈ X) (hy : y ∈ X)
+    (hxy : PairwiseAgreesOn P Q x y) :
+    ((f P x y ↔ f Q x y) ∧
+     (f P y x ↔ f Q y x)) :=
+  (h.apply P Q x y hx hy hxy).1
+
+theorem strict
+    {f : SWF ι σ} {X : Finset σ}
+    (h : IndOfIrrAlts f X)
+    (P Q : Profile ι σ) (x y : σ)
+    (hx : x ∈ X) (hy : y ∈ X)
+    (hxy : PairwiseAgreesOn P Q x y) :
+    (StrictPref (f P) x y ↔ StrictPref (f Q) x y) ∧
+    (StrictPref (f P) y x ↔ StrictPref (f Q) y x) :=
+  ⟨(h.apply P Q x y hx hy hxy).2.1, (h.apply P Q x y hx hy hxy).2.2⟩
+
+end IndOfIrrAlts
+
+namespace DictatorialSWFOn
+
+theorem witness
+    {f : SWF ι σ} {X : Finset σ}
+    (h : DictatorialSWFOn f X) :
+    ∃ i : ι, IsDictatorOn f X i :=
+  DictatorialOn.witness h
+
+end DictatorialSWFOn
+
+namespace IsDictatorship
+
+theorem witness
+    {f : SWF ι σ} {X : Finset σ}
+    (h : IsDictatorship f X) :
+    ∃ i : ι, IsDictatorOn f X i :=
+  DictatorialOn.witness h
+
+end IsDictatorship
+
 def IsPivotal (f : SWF ι σ) (X : Finset σ) (i : ι) (b : σ) : Prop :=
   ∃ (R R' : Profile ι σ),
     (∀ j : ι, j ≠ i → ∀ x y, x ∈ X → y ∈ X → R j = R' j) ∧
@@ -770,5 +836,16 @@ theorem arrow [Fintype ι] [DecidableEq ι]
     (hPareto : ParetoOn f X) (hIIA : IIAOn f X) (hX : 3 ≤ X.card) :
     DictatorialOn f X := by
   exact fourth_step hIIA hX (second_step hPareto hIIA hX)
+
+/--
+Compatibility wrapper for the legacy Arrow-style axiom names.
+
+New code should prefer `arrow`, whose statement is phrased directly in the
+shared `Basic.lean` vocabulary.
+-/
+theorem arrow_legacy [Fintype ι] [DecidableEq ι]
+    (hPareto : WeakPareto f X) (hIIA : IndOfIrrAlts f X) (hX : 3 ≤ X.card) :
+    IsDictatorship f X := by
+  exact arrow hPareto hIIA hX
 
 end SocialChoiceTheory

@@ -1,1 +1,0 @@
-# social-choice-theory

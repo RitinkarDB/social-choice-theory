@@ -1252,6 +1252,20 @@ abbrev StrictParetoOn
     (F : SocialWelfareFunction V A) (X : Finset A) : Prop :=
   ParetoOn F X
 
+namespace StrictParetoOn
+
+variable {V : Type u} {A : Type v} {F : SocialWelfareFunction V A} {X : Finset A}
+
+theorem apply
+    (h : StrictParetoOn F X)
+    (P : Profile V A) {x y : A}
+    (hx : x ∈ X) (hy : y ∈ X)
+    (hxy : ∀ i : V, Profile.StrictPref P i x y) :
+    SocialWelfareFunction.StrictPref F P x y :=
+  h x y hx hy P hxy
+
+end StrictParetoOn
+
 /--
 IIA on an agenda `X`: pairwise agreement on `x` versus `y` across all voters
 forces the same pairwise social order whenever `x,y ∈ X`.
@@ -1340,6 +1354,13 @@ theorem apply
     SocialWelfareFunction.StrictPref F P x y :=
   h P x y hxy
 
+theorem toOn
+    {X : Finset A}
+    (h : IsDictatorSWF F i) :
+    IsDictatorOn F X i := by
+  intro P x y hx hy hxy
+  exact h P x y hxy
+
 end IsDictatorSWF
 
 namespace DictatorialSWF
@@ -1350,6 +1371,13 @@ theorem witness
     (h : DictatorialSWF F) :
     ∃ i : V, IsDictatorSWF F i :=
   h
+
+theorem toOn
+    {X : Finset A}
+    (h : DictatorialSWF F) :
+    DictatorialOn F X := by
+  rcases h with ⟨i, hi⟩
+  exact ⟨i, hi.toOn (X := X)⟩
 
 end DictatorialSWF
 
